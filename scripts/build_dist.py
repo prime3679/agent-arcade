@@ -98,9 +98,9 @@ def main() -> int:
 <meta charset=\"utf-8\">
 <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
 <title>Agent Arcade</title>
-<meta http-equiv=\"refresh\" content=\"0; url=/app/\">
-<link rel=\"canonical\" href=\"/app/\">
-<a href=\"/app/\">Open Agent Arcade</a>
+<meta http-equiv=\"refresh\" content=\"0; url=./app/\">
+<link rel=\"canonical\" href=\"./app/\">
+<a href=\"./app/\">Open Agent Arcade</a>
 """, encoding="utf-8")
 
     print(f"Built {DIST}")
