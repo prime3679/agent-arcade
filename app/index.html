@@ -3,105 +3,48 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Agent Arcade</title>
+    <title>Agent Arcade — AA-8 Console</title>
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
-    <div class="grain" aria-hidden="true"></div>
+    <main class="device">
+      <span class="screw tl"></span><span class="screw tr"></span>
+      <span class="screw bl"></span><span class="screw br"></span>
 
-    <main class="console">
-      <header class="masthead">
-        <div class="masthead-id">
-          <p class="source" id="source-badge">
-            <span class="source-dot" aria-hidden="true"></span>
-            <span id="source-text">Connecting…</span>
-          </p>
+      <header class="head">
+        <div class="wordmark">
           <h1 id="arcade-title">Agent Arcade</h1>
-          <p class="subtitle" id="arcade-subtitle">
-            Cabinet view for Hermes-backed local operators.
-          </p>
+          <span class="model" id="model">AA-8 · LOCAL</span>
         </div>
-
-        <dl class="masthead-meta">
-          <div>
-            <dt>Snapshot</dt>
-            <dd id="generated-at">—</dd>
+        <div class="head-right">
+          <div class="palette-chips" aria-hidden="true">
+            <i style="background:#ff5a1f"></i><i style="background:#1faf5a"></i>
+            <i style="background:#2f6dff"></i><i style="background:#ffc21f"></i>
+            <i style="background:#15140f"></i>
           </div>
-          <div>
-            <dt>Location</dt>
-            <dd id="location">local</dd>
-          </div>
-          <div>
-            <dt>Branch</dt>
-            <dd id="branch">—</dd>
-          </div>
-        </dl>
+          <span class="rec" id="source-badge">
+            <span class="led" aria-hidden="true"></span>
+            <span id="source-text">Live</span>
+          </span>
+        </div>
       </header>
 
-      <section class="vitals" aria-label="System vitals">
-        <article class="vital" id="vital-hermes">
-          <p class="vital-label">Hermes</p>
-          <p class="vital-value"><span class="tick" aria-hidden="true"></span><span class="vital-num">—</span></p>
-          <p class="vital-sub">—</p>
-        </article>
-        <article class="vital" id="vital-gateway">
-          <p class="vital-label">Gateway</p>
-          <p class="vital-value"><span class="tick" aria-hidden="true"></span><span class="vital-num">—</span></p>
-          <p class="vital-sub">—</p>
-        </article>
-        <article class="vital" id="vital-cron">
-          <p class="vital-label">Scheduler</p>
-          <p class="vital-value"><span class="tick" aria-hidden="true"></span><span class="vital-num">—</span></p>
-          <p class="vital-sub">—</p>
-        </article>
-        <article class="vital" id="vital-git">
-          <p class="vital-label">Worktree</p>
-          <p class="vital-value"><span class="tick" aria-hidden="true"></span><span class="vital-num">—</span></p>
-          <p class="vital-sub">—</p>
-        </article>
-      </section>
+      <section class="lcd" id="lcd" aria-label="System readout" aria-live="polite"></section>
 
-      <section class="roster" aria-label="Agent fleet">
-        <div class="roster-head">
-          <h2>Fleet</h2>
-          <p class="roster-summary" id="roster-summary">—</p>
+      <div class="strip-label" id="mixer-label">Fleet · 8 channels</div>
+      <section class="mixer" id="mixer" aria-label="Agent fleet" aria-live="polite"></section>
+
+      <div class="strip-label">Patch bay · scheduled routines</div>
+      <section class="patch" id="patch" aria-label="Scheduled routines"></section>
+
+      <footer class="transport">
+        <div class="keys" aria-hidden="true">
+          <button>◀</button><button>▶</button>
+          <button class="accent">●</button><button>■</button>
         </div>
-
-        <div class="roster-columns" aria-hidden="true">
-          <span>State</span>
-          <span>Agent</span>
-          <span>Role</span>
-          <span>Signal</span>
-          <span class="col-index">#</span>
-        </div>
-
-        <ol class="fleet" id="fleet" aria-live="polite"></ol>
-      </section>
-
-      <footer class="console-foot">
-        <span>Agent Arcade · local-first, read-only</span>
-        <span id="foot-version">—</span>
+        <span class="stamp" id="stamp">read-only · no sends · no config writes</span>
       </footer>
     </main>
-
-    <template id="agent-row">
-      <li class="unit">
-        <span class="unit-state">
-          <span class="unit-dot" aria-hidden="true"></span>
-          <span class="unit-status sr-only"></span>
-        </span>
-        <span class="unit-id">
-          <span class="unit-mono" aria-hidden="true"></span>
-          <span class="unit-text">
-            <span class="unit-name"></span>
-            <span class="unit-cabinet"></span>
-          </span>
-        </span>
-        <span class="unit-role"></span>
-        <span class="unit-signal"></span>
-        <span class="unit-index col-index"></span>
-      </li>
-    </template>
 
     <script src="./app.js"></script>
   </body>

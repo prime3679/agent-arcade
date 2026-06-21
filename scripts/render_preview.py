@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """Render the full Agent Arcade console to a PNG for Telegram previews.
 
-Mirrors the web layout: masthead, vitals strip, and a dense fleet roster on a
-graphite background — the same visual direction as app/.
+Mirrors the AA-8 web layout: a warm plastic plate with corner screws, an inset
+phosphor LCD readout, eight mixer channel strips (one per agent), and a patch
+bay of scheduled routines on physical toggles.
 """
 from __future__ import annotations
+
+from pathlib import Path
 
 from PIL import Image, ImageDraw
 
@@ -12,178 +15,199 @@ import arcade_theme as t
 
 OUT = t.ROOT / "agent-arcade-preview.png"
 
-W, H = 1400, 1140
-MARGIN = 84
-INNER = W - 2 * MARGIN
-
-
-def vitals_data(p: dict) -> list[tuple[str, str, str, str]]:
-    hermes = p.get("hermes", {})
-    repo = p.get("repo", {})
-    gateway_up = bool(hermes.get("gateway", {}).get("running"))
-    cron_up = bool(hermes.get("cron", {}).get("running"))
-    cron_count = hermes.get("cron_list", {}).get("count", 0)
-    clean = bool(repo.get("clean"))
-    version = hermes.get("version", {})
-    pid = hermes.get("gateway", {}).get("pid")
-    next_run = hermes.get("cron", {}).get("next_run")
-
-    return [
-        ("HERMES", version.get("version") or "unknown",
-         f"build {version.get('build')}" if version.get("build") else "version unknown",
-         "ok" if version.get("version") else "warn"),
-        ("GATEWAY", "Online" if gateway_up else "Offline",
-         f"pid {pid}" if pid else ("healthy" if gateway_up else "no process"),
-         "ok" if gateway_up else "warn"),
-        ("SCHEDULER", f"{cron_count} {'job' if cron_count == 1 else 'jobs'}",
-         (f"next {t.fmt_time(next_run)}" if next_run else "running") if cron_up else "stopped",
-         "ok" if cron_up else "warn"),
-        ("WORKTREE", "Clean" if clean else f"{repo.get('changed_files', 0)} changed",
-         f"branch {repo.get('branch')}" if repo.get("branch") else "—",
-         "ok" if clean else "active"),
-    ]
+W = 1400
+MARGIN = 46          # paper around the plate
+PAD = 40             # plate inner padding
 
 
 def render() -> Path:
     payload = t.load_data()
     agents = payload.get("agents", [])
+    hermes = payload.get("hermes", {})
+    repo = payload.get("repo", {})
+    entries = hermes.get("cron_list", {}).get("entries", [])
+
+    x0 = MARGIN + PAD
+    x1 = W - MARGIN - PAD
+    inner = x1 - x0
+
+    # ---- vertical plan (compute H before painting) ----
+    header_h, lcd_h, label_h = 66, 80, 26
+    grid_gap, card_w_cols = 14, 4
+    card_w = (inner - (card_w_cols - 1) * grid_gap) / card_w_cols
+    card_h = 176
+    rows = (len(agents) + card_w_cols - 1) // card_w_cols
+    mixer_h = rows * card_h + (rows - 1) * grid_gap
+    jack_h, patch_pad = 46, 14
+    patch_h = max(1, len(entries)) * jack_h + 2 * patch_pad
+    foot_h = 52
+
+    header_y = MARGIN + PAD
+    lcd_y = header_y + header_h
+    mixer_label_y = lcd_y + lcd_h + 22
+    grid_y = mixer_label_y + label_h
+    patch_label_y = grid_y + mixer_h + 26
+    patch_y = patch_label_y + label_h
+    foot_y = patch_y + patch_h + 24
+    plate_bottom = foot_y + foot_h + PAD
+    H = plate_bottom + MARGIN
 
     img = Image.new("RGB", (W, H))
-    t.vertical_backdrop(img)
+    t.paper_backdrop(img)
     d = ImageDraw.Draw(img)
 
-    f_title = t.font(46, "Semibold")
-    f_sub = t.font(20, "Regular")
-    f_label = t.font(13, "Medium")
-    f_meta_k = t.font(12, "Medium")
-    f_meta_v = t.font(17, "Regular", mono=True)
-    f_vital = t.font(30, "Medium", mono=True)
-    f_vital_sub = t.font(15, "Regular", mono=True)
-    f_name = t.font(20, "Medium")
-    f_role = t.font(17, "Regular")
-    f_signal = t.font(17, "Regular")
-    f_mono_sm = t.font(14, "Regular", mono=True)
+    # ---- device plate + screws ----
+    t.plate(d, (MARGIN, MARGIN, W - MARGIN, plate_bottom), radius=22)
+    for sx, sy in ((MARGIN + 16, MARGIN + 16), (W - MARGIN - 16, MARGIN + 16),
+                   (MARGIN + 16, plate_bottom - 16), (W - MARGIN - 16, plate_bottom - 16)):
+        t.screw(d, sx, sy)
 
-    x0 = MARGIN
-
-    # ---- Masthead ----
-    badge_y = 80
     live = payload.get("__source") != "fallback"
-    t.status_dot(d, x0 + 5, badge_y + 6, "ok" if live else "default", r=4)
-    t.tracked(d, (x0 + 18, badge_y), "LIVE SNAPSHOT" if live else "SAMPLE DATA",
-              f_label, t.DIM if live else t.FAINT, tracking=2.2)
 
-    arcade = payload.get("arcade", {})
-    d.text((x0, badge_y + 26), arcade.get("title", "Agent Arcade"), font=f_title, fill=t.TEXT)
-    d.text((x0, badge_y + 86), arcade.get("subtitle", ""), font=f_sub, fill=t.DIM)
+    # ---- header ----
+    f_mark = t.font(40, "Heavy")
+    title = (payload.get("arcade", {}).get("title", "Agent Arcade")).upper()
+    d.text((x0, header_y + 4), title, font=f_mark, fill=t.INK)
+    title_w = t.text_len(d, title, f_mark)
 
-    # right-aligned meta block
-    repo = payload.get("repo", {})
-    meta = [
-        ("SNAPSHOT", t.fmt_snapshot(payload.get("generated_at", "")) ),
-        ("LOCATION", arcade.get("location", "local")),
-        ("BRANCH", repo.get("branch") or "—"),
+    f_model = t.font(15, "Semibold", mono=True)
+    model = f"AA-8 · {(payload.get('arcade', {}).get('location', 'local')).upper()}"
+    mw = t.text_len(d, model, f_model)
+    bx = x0 + title_w + 20
+    by = header_y + 14
+    d.rounded_rectangle((bx, by, bx + mw + 22, by + 30), radius=6, fill=t.INK)
+    d.text((bx + 11, by + 6), model, font=f_model, fill=t.PLATE)
+
+    # right cluster: live indicator + palette chips
+    f_rec = t.font(14, "Semibold", mono=True)
+    rec = "LIVE" if live else "SAMPLE"
+    rec_w = t.text_len(d, rec, f_rec) + len(rec) * 1.4
+    rec_x = x1 - rec_w
+    t.tracked(d, (rec_x, header_y + 16), rec, f_rec, t.INK2 if live else t.FAINT, tracking=1.4)
+    led_x = rec_x - 18
+    led_c = t.ORANGE if live else t.BUSY
+    d.ellipse((led_x - 6, header_y + 18, led_x + 6, header_y + 30), fill=led_c)
+    chips = [(255, 90, 31), (31, 175, 90), (47, 109, 255), (255, 194, 31), (21, 20, 15)]
+    cx = led_x - 22 - (len(chips) * 18)
+    for c in chips:
+        d.rounded_rectangle((cx, header_y + 16, cx + 14, header_y + 30), radius=3, fill=c)
+        cx += 18
+
+    # ---- LCD readout ----
+    t.lcd_panel(d, (x0, lcd_y, x1, lcd_y + lcd_h))
+    version = hermes.get("version", {})
+    cron = hermes.get("cron", {})
+    jobs = cron.get("active_jobs", hermes.get("cron_list", {}).get("count", 0))
+    gateway_up = bool(hermes.get("gateway", {}).get("running"))
+    clean = bool(repo.get("clean"))
+    segs = [
+        ("VER", f"v{version.get('version', '?')}", False),
+        ("GATE", "ON" if gateway_up else "OFF", not gateway_up),
+        ("CRON", f"{jobs} JOBS", not cron.get("running")),
+        ("GIT", "CLEAN" if clean else f"{repo.get('changed_files', 0)}Δ", not clean),
+        ("NEXT", t.fmt_time(cron.get("next_run")) if cron.get("running") else "—", not cron.get("running")),
     ]
-    mx = W - MARGIN
-    col_w = 175
-    for i, (k, v) in enumerate(meta):
-        cx = mx - (len(meta) - i) * col_w + col_w
-        kx = cx - t.text_len(d, k, f_meta_k)
-        d.text((kx, badge_y), k, font=f_meta_k, fill=t.FAINT)
-        vx = cx - t.text_len(d, v, f_meta_v)
-        d.text((vx, badge_y + 18), v, font=f_meta_v, fill=t.TEXT)
+    f_k = t.font(13, "Medium", mono=True)
+    f_v = t.font(23, "Semibold", mono=True)
+    seg_x = x0 + 26
+    for key, val, warn in segs:
+        t.tracked(d, (seg_x, lcd_y + 20), key, f_k, t.LCD_DIM, tracking=1.6)
+        d.text((seg_x, lcd_y + 38), val, font=f_v, fill=t.BUSY if warn else t.LCD)
+        seg_x += max(150, t.text_len(d, val, f_v) + 70)
 
-    d.line((x0, 218, W - MARGIN, 218), fill=t.LINE, width=1)
+    scroll = f"build {version.get('build', '?')} · {repo.get('branch', '—')} @ {repo.get('head', '—')}"
+    f_scroll = t.font(15, "Regular", mono=True)
+    d.text((x1 - 24 - t.text_len(d, scroll, f_scroll), lcd_y + 30), scroll, font=f_scroll, fill=t.LCD_DIM)
 
-    # ---- Vitals strip ----
-    vy0, vh = 256, 116
-    d.rounded_rectangle((x0, vy0, W - MARGIN, vy0 + vh), radius=12, fill=t.BG1, outline=t.LINE, width=1)
-    cells = vitals_data(payload)
-    seg_w = INNER / len(cells)
-    for i, (label, value, sub, state) in enumerate(cells):
-        sx = x0 + i * seg_w
-        if i:
-            d.line((sx, vy0 + 14, sx, vy0 + vh - 14), fill=t.LINE, width=1)
-        px = sx + 26
-        t.tracked(d, (px, vy0 + 22), label, f_label, t.FAINT, tracking=2.0)
-        tick = sx + 26
-        d.rounded_rectangle((tick, vy0 + 52, tick + 8, vy0 + 60), radius=2,
-                            fill=t.STATE_COLORS.get(state, t.FAINT))
-        d.text((tick + 18, vy0 + 46), value, font=f_vital, fill=t.TEXT)
-        d.text((px, vy0 + 84), sub, font=f_vital_sub, fill=t.FAINT)
+    # ---- mixer channel strips ----
+    _strip_label(d, x0, x1, mixer_label_y, f"Fleet · {len(agents)} channels")
+    f_num = t.font(30, "Heavy", mono=True)
+    f_name = t.font(19, "Bold")
+    f_role = t.font(12, "Medium", mono=True)
+    f_state = t.font(11, "Bold", mono=True)
+    f_cab = t.font(13, "Regular", mono=True)
+    for i, a in enumerate(agents):
+        col, row = i % card_w_cols, i // card_w_cols
+        cx0 = x0 + col * (card_w + grid_gap)
+        cy0 = grid_y + row * (card_h + grid_gap)
+        t.plate(d, (cx0, cy0, cx0 + card_w, cy0 + card_h), radius=12, recessed=True)
 
-    # ---- Fleet roster ----
-    fy = vy0 + vh + 48
-    t.tracked(d, (x0, fy), "FLEET", t.font(15, "Semibold"), t.DIM, tracking=2.4)
-    counts = {"ok": 0, "active": 0, "warn": 0}
-    for a in agents:
-        counts[t.state_for(a.get("status", "ready"))] += 1
-    summary = f"{len(agents)} agents · {counts['ok']} ready · {counts['active']} active · {counts['warn']} warning"
-    d.text((W - MARGIN - t.text_len(d, summary, f_mono_sm), fy + 2), summary, font=f_mono_sm, fill=t.FAINT)
-
-    # column header
-    hy = fy + 34
-    cols_x = {
-        "state": x0 + 12,
-        "agent": x0 + 56,
-        "role": x0 + 430,
-        "signal": x0 + 700,
-        "index": W - MARGIN - 14,
-    }
-    f_col = t.font(11, "Medium")
-    t.tracked(d, (cols_x["state"], hy), "STATE", f_col, t.FAINT, tracking=1.6)
-    t.tracked(d, (cols_x["agent"], hy), "AGENT", f_col, t.FAINT, tracking=1.6)
-    t.tracked(d, (cols_x["role"], hy), "ROLE", f_col, t.FAINT, tracking=1.6)
-    t.tracked(d, (cols_x["signal"], hy), "SIGNAL", f_col, t.FAINT, tracking=1.6)
-    d.text((cols_x["index"] - t.text_len(d, "#", f_col), hy), "#", font=f_col, fill=t.FAINT)
-    d.line((x0, hy + 22, W - MARGIN, hy + 22), fill=t.LINE, width=1)
-
-    row_h = 70
-    ry = hy + 22
-    for idx, a in enumerate(agents):
-        top = ry + idx * row_h
-        mid = top + row_h / 2
         state = t.state_for(a.get("status", "ready"))
+        accent = t.accent_rgb(a.get("accent"))
 
-        t.status_dot(d, cols_x["state"] + 4, mid, state, r=5)
+        d.text((cx0 + 18, cy0 + 14), str(a.get("order", i + 1)).zfill(2), font=f_num, fill=t.INK)
+        t.knob(d, cx0 + card_w - 36, cy0 + 32, 18, accent, -58 + i * 16)
 
-        tile = (cols_x["agent"], mid - 18, cols_x["agent"] + 36, mid + 18)
-        t.monogram(d, tile, (a.get("label", "?")[:1] or "?").upper(), a.get("accent", ""))
-        name_x = cols_x["agent"] + 50
-        d.text((name_x, mid - 21), a.get("label", a.get("id", "—")), font=f_name, fill=t.TEXT)
-        d.text((name_x, mid + 4), a.get("cabinet", ""), font=f_mono_sm, fill=t.FAINT)
+        d.text((cx0 + 18, cy0 + 58), t.ellipsize(d, a.get("label", a.get("id", "—")), f_name, card_w - 36), font=f_name, fill=t.INK)
+        t.tracked(d, (cx0 + 18, cy0 + 86), (a.get("role", "")).upper(), f_role, t.FAINT, tracking=0.6)
 
-        role = a.get("role", "")
-        d.text((cols_x["role"], mid - 9), _ellipsize(d, role, f_role, 250), font=f_role, fill=t.DIM)
+        bottom = cy0 + card_h - 16
+        on_color = t.OK if state == "ok" else t.BUSY
+        t.meter(d, cx0 + 18, bottom, 5 if state == "ok" else 3, 5, on_color)
+        t.fader(d, (cx0 + 44, cy0 + 108, cx0 + 78, bottom), 0.10 if state == "ok" else 0.42, accent)
 
-        signal = a.get("signal", "Standing by.")
-        sig_color = {"active": (232, 193, 132), "warn": (243, 153, 143)}.get(state, t.DIM)
-        d.text((cols_x["signal"], mid - 9),
-               _ellipsize(d, signal, f_signal, W - MARGIN - cols_x["signal"] - 50),
-               font=f_signal, fill=sig_color)
+        # state badge + cabinet
+        meta_x = cx0 + 92
+        label = (a.get("status", "ready")).upper()
+        lw = t.text_len(d, label, f_state) + len(label) * 1.0
+        if state == "ok":
+            badge_bg, badge_fg = t.mix(t.OK, t.PLATE, 0.22), (10, 94, 47)
+        else:
+            badge_bg, badge_fg = t.mix(t.BUSY, t.PLATE, 0.30), (138, 74, 0)
+        d.rounded_rectangle((meta_x, cy0 + 110, meta_x + lw + 14, cy0 + 130), radius=4, fill=badge_bg)
+        t.tracked(d, (meta_x + 7, cy0 + 114), label, f_state, badge_fg, tracking=1.0)
+        d.text((meta_x, cy0 + 140), t.ellipsize(d, a.get("cabinet", ""), f_cab, card_w - 92 - 16), font=f_cab, fill=t.FAINT)
 
-        order = str(a.get("order", idx + 1))
-        d.text((cols_x["index"] - t.text_len(d, order, f_mono_sm), mid - 9), order, font=f_mono_sm, fill=t.FAINT)
+    # ---- patch bay ----
+    _strip_label(d, x0, x1, patch_label_y, "Patch bay · scheduled routines")
+    t.plate(d, (x0, patch_y, x1, patch_y + patch_h), radius=12, recessed=True)
+    f_jack = t.font(16, "Semibold")
+    f_cron = t.font(14, "Regular", mono=True)
+    sched_x = x0 + 560
+    for i, c in enumerate(entries):
+        ry = patch_y + patch_pad + i * jack_h
+        mid = ry + jack_h / 2
+        on = (c.get("state", "active") == "active")
+        t.toggle(d, x0 + 42, mid, on)
+        d.text((x0 + 72, mid - 11), t.ellipsize(d, c.get("name", ""), f_jack, sched_x - (x0 + 72) - 20), font=f_jack, fill=t.INK)
+        d.text((sched_x, mid - 9), c.get("schedule", ""), font=f_cron, fill=t.INK2)
+        nxt = (c.get("next_run", "") or "")[5:16].replace("T", " ") or "—"
+        d.text((x1 - 16 - t.text_len(d, nxt, f_cron), mid - 9), nxt, font=f_cron, fill=t.FAINT)
+        if i < len(entries) - 1:
+            d.line((x0 + 14, ry + jack_h, x1 - 14, ry + jack_h), fill=t.LINE, width=1)
 
-        d.line((x0, top + row_h, W - MARGIN, top + row_h), fill=t.LINE, width=1)
+    # ---- transport footer ----
+    d.line((x0, foot_y, x1, foot_y), fill=t.LINE2, width=2)
+    keys = [("◀", False), ("▶", False), ("●", True), ("■", False)]
+    kx = x0
+    f_key = t.font(15, "Regular")
+    for glyph, accent in keys:
+        d.rounded_rectangle((kx, foot_y + 14, kx + 34, foot_y + 42), radius=6,
+                            fill=t.ORANGE if accent else t.PLATE, outline=t.LINE2, width=1)
+        gw = t.text_len(d, glyph, f_key)
+        d.text((kx + 17 - gw / 2, foot_y + 19), glyph, font=f_key, fill=(255, 255, 255) if accent else t.INK2)
+        kx += 42
 
-    # ---- Footer ----
-    foot_y = ry + len(agents) * row_h + 24
-    d.text((x0, foot_y), "Agent Arcade · local-first, read-only", font=f_mono_sm, fill=t.FAINT)
-    version = payload.get("hermes", {}).get("version", {})
-    vtxt = f"hermes v{version.get('version', '?')}" + (f" · {version.get('build')}" if version.get("build") else "")
-    d.text((W - MARGIN - t.text_len(d, vtxt, f_mono_sm), foot_y), vtxt, font=f_mono_sm, fill=t.FAINT)
+    f_stamp = t.font(14, "Medium", mono=True)
+    stamp = (f"LIVE SNAPSHOT · {t.fmt_snapshot(payload.get('generated_at', ''))}"
+             if live else "SAMPLE DATA · FILE://")
+    t.tracked(d, (x1 - _tracked_w(d, stamp, f_stamp, 0.8), foot_y + 22), stamp, f_stamp, t.FAINT, tracking=0.8)
 
     img.save(OUT)
     return OUT
 
 
-def _ellipsize(d, text: str, fnt, max_w: float) -> str:
-    if t.text_len(d, text, fnt) <= max_w:
-        return text
-    while text and t.text_len(d, text + "…", fnt) > max_w:
-        text = text[:-1]
-    return text + "…"
+def _strip_label(d, x0, x1, y, text) -> None:
+    f = t.font(14, "Bold", mono=True)
+    end = t.tracked(d, (x0 + 4, y), text.upper(), f, t.INK2, tracking=1.6)
+    dash_x = end + 14
+    while dash_x < x1:
+        d.line((dash_x, y + 9, min(dash_x + 6, x1), y + 9), fill=t.LINE2, width=2)
+        dash_x += 10
+
+
+def _tracked_w(d, text, fnt, tracking) -> float:
+    return t.text_len(d, text, fnt) + len(text) * tracking
 
 
 if __name__ == "__main__":

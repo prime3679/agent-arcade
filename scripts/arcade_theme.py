@@ -2,14 +2,15 @@
 """Shared visual language for the Agent Arcade PNG renderers.
 
 Keeps the Telegram preview and status card consistent with the web console:
-the same graphite palette, the same native macOS type (SF Pro / SF Mono), and
-the same semantic status colours. No third-party fonts, no network.
+the AA-8 hardware look — warm plastic plate, an inset phosphor LCD, primary
+signal colours, and native macOS type (SF Pro / SF Mono). No third-party
+fonts, no network.
 """
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
-from typing import Iterable
 
 from PIL import ImageDraw, ImageFont
 
@@ -17,37 +18,39 @@ ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data" / "latest.json"
 
 # ---- Palette (RGB), mirrors app/style.css ----------------------------------
-BG0 = (11, 12, 15)
-BG1 = (16, 18, 24)
-BG2 = (20, 22, 30)
-ROW = (18, 20, 30)
-HOVER = (25, 28, 39)
-LINE = (34, 37, 46)
-LINE2 = (48, 52, 62)
-TEXT = (236, 238, 243)
-DIM = (154, 161, 174)
-FAINT = (100, 107, 120)
+PAPER = (231, 228, 218)   # desk / negative space
+PLATE = (243, 241, 234)   # device plastic
+PLATE2 = (233, 230, 221)  # recessed plastic
+INK = (21, 20, 15)        # near-black
+INK2 = (75, 73, 64)
+FAINT = (140, 137, 124)
+LINE = (212, 208, 196)
+LINE2 = (196, 192, 178)
 
-OK = (78, 199, 122)
-ACTIVE = (226, 168, 63)
-WARN = (239, 111, 99)
+ORANGE = (255, 90, 31)    # TE signal orange
+LCD_BG = (20, 24, 15)     # phosphor panel
+LCD = (199, 227, 106)     # phosphor green
+LCD_DIM = (92, 107, 58)
 
-# Muted, low-chroma identity tints — monogram tiles only.
+OK = (31, 175, 90)
+BUSY = (255, 158, 31)
+
+# Bright, primary-leaning identity colours for the channel knobs.
 ACCENTS = {
-    "ember": (181, 118, 90),
-    "laser": (95, 143, 176),
-    "mint": (111, 168, 134),
-    "cobalt": (107, 128, 184),
-    "gold": (179, 145, 82),
-    "coral": (189, 122, 106),
-    "ice": (127, 147, 166),
-    "plum": (155, 127, 175),
+    "ember": (255, 90, 31),
+    "laser": (47, 109, 255),
+    "mint": (31, 175, 90),
+    "cobalt": (124, 92, 255),
+    "gold": (255, 194, 31),
+    "coral": (255, 138, 63),
+    "ice": (31, 198, 198),
+    "plum": (197, 74, 214),
 }
 
-STATE_COLORS = {"ok": OK, "active": ACTIVE, "warn": WARN}
-_STATUS_TO_STATE = {"ready": "ok", "active": "active", "warning": "warn"}
+STATE_COLORS = {"ok": OK, "busy": BUSY}
+_STATUS_TO_STATE = {"ready": "ok"}  # everything else reads as busy
 
-# Font weight files (San Francisco is a variable font; weights via variation).
+# San Francisco is a variable font; weights are applied via variation names.
 _SF = "/System/Library/Fonts/SFNS.ttf"
 _SF_MONO = "/System/Library/Fonts/SFNSMono.ttf"
 _FALLBACK = "/System/Library/Fonts/Helvetica.ttc"
@@ -77,7 +80,11 @@ def font(size: int, weight: str = "Regular", mono: bool = False) -> ImageFont.Fr
 
 
 def state_for(status: str) -> str:
-    return _STATUS_TO_STATE.get((status or "").lower(), "ok")
+    return _STATUS_TO_STATE.get((status or "").lower(), "busy")
+
+
+def accent_rgb(name: str) -> tuple[int, int, int]:
+    return ACCENTS.get((name or "").lower(), INK)
 
 
 def mix(fg: tuple[int, int, int], bg: tuple[int, int, int], t: float) -> tuple[int, int, int]:
@@ -85,15 +92,14 @@ def mix(fg: tuple[int, int, int], bg: tuple[int, int, int], t: float) -> tuple[i
     return tuple(round(a * t + b * (1 - t)) for a, b in zip(fg, bg))
 
 
-def vertical_backdrop(img) -> None:
-    """Subtle top-lit graphite gradient — no neon, no glow."""
+def paper_backdrop(img) -> None:
+    """Warm paper desk with faint horizontal scanlines — no glow."""
     w, h = img.size
     draw = ImageDraw.Draw(img)
-    top = (16, 18, 25)
-    bottom = (9, 10, 13)
-    for y in range(h):
-        t = y / max(h - 1, 1)
-        draw.line((0, y, w, y), fill=mix(bottom, top, t))
+    draw.rectangle((0, 0, w, h), fill=PAPER)
+    shade = mix((0, 0, 0), PAPER, 0.012)
+    for y in range(0, h, 4):
+        draw.line((0, y, w, y), fill=shade)
 
 
 def text_len(draw: ImageDraw.ImageDraw, text: str, fnt) -> float:
@@ -109,46 +115,83 @@ def tracked(draw, xy, text, fnt, fill, tracking: float = 0.0) -> float:
     return x
 
 
-def wrap(draw, text: str, fnt, max_width: float) -> list[str]:
-    words = (text or "").split()
-    lines: list[str] = []
-    line = ""
-    for word in words:
-        probe = f"{line} {word}".strip()
-        if text_len(draw, probe, fnt) <= max_width or not line:
-            line = probe
-        else:
-            lines.append(line)
-            line = word
-    if line:
-        lines.append(line)
-    return lines
+def ellipsize(draw, text: str, fnt, max_w: float) -> str:
+    if text_len(draw, text, fnt) <= max_w:
+        return text
+    while text and text_len(draw, text + "…", fnt) > max_w:
+        text = text[:-1]
+    return text + "…"
+
+
+# ---- Hardware primitives ----------------------------------------------------
+
+def plate(draw, box, radius=22, recessed=False) -> None:
+    fill = PLATE2 if recessed else PLATE
+    draw.rounded_rectangle(box, radius=radius, fill=fill, outline=LINE2, width=1)
+
+
+def screw(draw, cx, cy, r=7) -> None:
+    draw.ellipse((cx - r, cy - r, cx + r, cy + r), fill=(196, 192, 178), outline=mix(INK, PAPER, 0.4))
+    draw.ellipse((cx - r + 2, cy - r + 2, cx + r - 3, cy + r - 3), fill=(232, 229, 219))
+    draw.line((cx - r + 3, cy, cx + r - 3, cy), fill=INK2, width=1)
 
 
 def status_dot(draw, cx, cy, state: str, r: int = 5) -> None:
     color = STATE_COLORS.get(state, FAINT)
-    ring = mix(color, BG0, 0.18)
-    draw.ellipse((cx - r - 4, cy - r - 4, cx + r + 4, cy + r + 4), fill=ring)
+    draw.ellipse((cx - r - 3, cy - r - 3, cx + r + 3, cy + r + 3), fill=mix(color, PAPER, 0.22))
     draw.ellipse((cx - r, cy - r, cx + r, cy + r), fill=color)
 
 
-def monogram(draw, box, letter: str, accent_name: str) -> None:
-    """Rounded identity tile with a muted accent tint."""
+def knob(draw, cx, cy, r, accent, rot_deg: float) -> None:
+    """Plastic knob with an accent indicator and a soft accent ring."""
+    draw.ellipse((cx - r - 4, cy - r - 4, cx + r + 4, cy + r + 4),
+                 outline=mix(accent, PLATE2, 0.45), width=2)
+    draw.ellipse((cx - r, cy - r, cx + r, cy + r), fill=PLATE, outline=LINE2, width=1)
+    # indicator: 0deg points up, increasing clockwise
+    theta = math.radians(rot_deg)
+    dx, dy = math.sin(theta), -math.cos(theta)
+    x0, y0 = cx + dx * (r * 0.32), cy + dy * (r * 0.32)
+    x1, y1 = cx + dx * (r * 0.88), cy + dy * (r * 0.88)
+    draw.line((x0, y0, x1, y1), fill=accent, width=3)
+
+
+def meter(draw, x, y_bottom, lit: int, total: int, on_color, seg_h=7, gap=3, w=15) -> None:
+    """Vertical segment meter, drawn bottom-up."""
+    for i in range(total):
+        top = y_bottom - (i + 1) * seg_h - i * gap
+        color = on_color if i < lit else LINE
+        draw.rounded_rectangle((x, top, x + w, top + seg_h), radius=2, fill=color)
+
+
+def fader(draw, box, cap_frac: float, accent) -> None:
+    """Recessed fader slot with a centred track and a dark cap."""
     x0, y0, x1, y1 = box
-    accent = ACCENTS.get(accent_name)
-    if accent:
-        fill = mix(accent, BG2, 0.16)
-        outline = mix(accent, LINE2, 0.30)
-        glyph = mix(accent, TEXT, 0.60)
-    else:
-        fill, outline, glyph = BG2, LINE2, TEXT
-    draw.rounded_rectangle(box, radius=8, fill=fill, outline=outline, width=1)
-    fnt = font(round((y1 - y0) * 0.5), "Semibold")
-    w = text_len(draw, letter, fnt)
-    ascent, descent = fnt.getmetrics()
-    cx = (x0 + x1) / 2 - w / 2
-    cy = (y0 + y1) / 2 - (ascent + descent) / 2
-    draw.text((cx, cy), letter, font=fnt, fill=glyph)
+    draw.rounded_rectangle(box, radius=6, fill=PLATE, outline=LINE, width=1)
+    cx = (x0 + x1) / 2
+    draw.line((cx, y0 + 8, cx, y1 - 8), fill=LINE2, width=3)
+    cap_y = y0 + 10 + cap_frac * (y1 - y0 - 20)
+    cw, ch = 24, 13
+    draw.rounded_rectangle((cx - cw / 2, cap_y - ch / 2, cx + cw / 2, cap_y + ch / 2),
+                           radius=4, fill=INK)
+    draw.line((cx - cw / 2 + 4, cap_y, cx + cw / 2 - 4, cap_y), fill=accent, width=2)
+
+
+def toggle(draw, cx, cy, on: bool, w=38, h=20) -> None:
+    """Rounded rocker switch — green when on, plate when off."""
+    box = (cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2)
+    fill = mix(OK, PLATE, 0.32) if on else PLATE
+    draw.rounded_rectangle(box, radius=h / 2, fill=fill, outline=LINE2, width=1)
+    kr = h / 2 - 3
+    kx = cx + w / 2 - kr - 3 if on else cx - w / 2 + kr + 3
+    draw.ellipse((kx - kr, cy - kr, kx + kr, cy + kr), fill=(248, 246, 240), outline=LINE2)
+
+
+def lcd_panel(draw, box, radius=10) -> None:
+    """Dark phosphor LCD with horizontal scanlines."""
+    x0, y0, x1, y1 = box
+    draw.rounded_rectangle(box, radius=radius, fill=LCD_BG, outline=(10, 13, 6), width=1)
+    for y in range(int(y0) + 3, int(y1) - 2, 3):
+        draw.line((x0 + 3, y, x1 - 3, y), fill=mix((0, 0, 0), LCD_BG, 0.4))
 
 
 def fmt_time(value: str) -> str:

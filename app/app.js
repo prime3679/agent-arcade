@@ -1,48 +1,65 @@
-// Agent Arcade — console renderer.
-// Reads the generated snapshot (data/latest.json) and paints the operator
-// console. Falls back to embedded sample data under file:// where fetch fails.
+// Agent Arcade — AA-8 Console renderer.
+// Reads the generated snapshot (data/latest.json) and paints the hardware
+// console: an inset LCD readout, eight mixer channel strips (one per agent),
+// and a patch bay of scheduled routines. Falls back to embedded sample data
+// under file:// where fetch is blocked. Consumes the raw snapshot shape
+// directly, so it stays in lockstep with collect_state.py.
 
 const sampleData = {
-  generated_at: "2026-06-21T12:00:00-04:00",
-  arcade: {
-    title: "Agent Arcade",
-    subtitle: "Local-first command console for the Hermes agent fleet.",
-    location: "local",
-    agent_count: 8,
-  },
+  generated_at: "2026-06-21T15:01:44-04:00",
+  arcade: { title: "Agent Arcade", location: "local", agent_count: 8 },
   hermes: {
-    version: { ok: true, version: "0.17.0", build: "2026.6.19" },
-    gateway: { ok: true, running: true, pid: 76095 },
-    cron: { ok: true, running: true, next_run: "2026-06-21T18:00:00-04:00" },
-    cron_list: { count: 10 },
+    version: { version: "0.17.0", build: "2026.6.19" },
+    gateway: { running: true, pid: 76095 },
+    cron: { running: true, active_jobs: 10, next_run: "2026-06-21T18:00:00-04:00" },
+    cron_list: {
+      count: 10,
+      entries: [
+        { state: "active", name: "morning-operating-brief", schedule: "0 8 * * 1-5", next_run: "2026-06-22T08:00:00-04:00" },
+        { state: "active", name: "weekly-rogue-fiction-draft", schedule: "0 20 * * 0", next_run: "2026-06-21T20:00:00-04:00" },
+        { state: "active", name: "rogue-watchdog-health-monitor", schedule: "0 */6 * * *", next_run: "2026-06-21T18:00:00-04:00" },
+        { state: "active", name: "family-weekend-weather-and-outing-brief", schedule: "30 8 * * 5", next_run: "2026-06-26T08:30:00-04:00" },
+        { state: "active", name: "rogue-pregnancy-weekly", schedule: "0 19 * * 0", next_run: "2026-06-21T19:00:00-04:00" },
+        { state: "active", name: "rogue-knowledge-curated-sync", schedule: "20 21 * * *", next_run: "2026-06-21T21:20:00-04:00" },
+        { state: "active", name: "rogue-pr-babysitter-loop", schedule: "0 8-18 * * 1-5", next_run: "2026-06-22T08:00:00-04:00" },
+        { state: "active", name: "rogue-personal-site-loop", schedule: "0 */6 * * *", next_run: "2026-06-21T18:00:00-04:00" },
+        { state: "active", name: "rogue-knowledge-hygiene-loop", schedule: "30 21 * * *", next_run: "2026-06-21T21:30:00-04:00" },
+        { state: "active", name: "rogue-disk-hygiene-watchdog", schedule: "0 */6 * * *", next_run: "2026-06-21T18:00:00-04:00" },
+      ],
+    },
   },
-  repo: { branch: "main", clean: false, changed_files: 6, untracked_files: 6 },
+  repo: { branch: "main", head: "7ab318b", clean: false, changed_files: 8 },
   agents: [
-    { id: "rogue", label: "Rogue", role: "Product control plane", cabinet: "command-deck", accent: "ember", order: 1, status: "ready", signal: "All systems stable." },
-    { id: "codex", label: "Codex", role: "Primary builder", cabinet: "builder-bay", accent: "laser", order: 2, status: "ready", signal: "Standing by for build." },
-    { id: "claude-code", label: "Claude Code", role: "Deep reviewer", cabinet: "review-rail", accent: "mint", order: 3, status: "ready", signal: "No review queued." },
-    { id: "scout", label: "Scout", role: "Repo ranger", cabinet: "branch-radar", accent: "cobalt", order: 4, status: "active", signal: "6 files changed in this repo." },
-    { id: "sentinel", label: "Sentinel", role: "Gateway watcher", cabinet: "pulse-tower", accent: "gold", order: 5, status: "ready", signal: "Gateway responsive." },
-    { id: "ticker", label: "Ticker", role: "Scheduler monitor", cabinet: "clockwork", accent: "coral", order: 6, status: "ready", signal: "Next run 18:00." },
-    { id: "patchbay", label: "Patchbay", role: "Local automation", cabinet: "wire-mesh", accent: "ice", order: 7, status: "active", signal: "10 cron definitions tracked." },
-    { id: "archivist", label: "Archivist", role: "Snapshot keeper", cabinet: "memory-vault", accent: "plum", order: 8, status: "active", signal: "Writing snapshots to data/runs/." },
+    { label: "Rogue", role: "Product control plane", cabinet: "command-deck", accent: "ember", order: 1, status: "ready", signal: "All systems stable." },
+    { label: "Codex", role: "Primary builder", cabinet: "builder-bay", accent: "laser", order: 2, status: "ready", signal: "All systems stable." },
+    { label: "Claude Code", role: "Deep reviewer", cabinet: "review-rail", accent: "mint", order: 3, status: "ready", signal: "All systems stable." },
+    { label: "Scout", role: "Repo ranger", cabinet: "branch-radar", accent: "cobalt", order: 4, status: "active", signal: "8 files changed." },
+    { label: "Sentinel", role: "Gateway watcher", cabinet: "pulse-tower", accent: "gold", order: 5, status: "ready", signal: "All systems stable." },
+    { label: "Ticker", role: "Scheduler monitor", cabinet: "clockwork", accent: "coral", order: 6, status: "ready", signal: "All systems stable." },
+    { label: "Patchbay", role: "Local automation", cabinet: "wire-mesh", accent: "ice", order: 7, status: "active", signal: "10 routines detected." },
+    { label: "Archivist", role: "Snapshot keeper", cabinet: "memory-vault", accent: "plum", order: 8, status: "active", signal: "Writing snapshots." },
   ],
 };
 
-// Muted, low-chroma identity tints — applied only to the small monogram tiles.
+// Bright, primary-leaning identity colours for the channel knobs.
 const ACCENTS = {
-  ember: "#b5765a",
-  laser: "#5f8fb0",
-  mint: "#6fa886",
-  cobalt: "#6b80b8",
-  gold: "#b39152",
-  coral: "#bd7a6a",
-  ice: "#7f93a6",
-  plum: "#9b7faf",
+  ember: "#ff5a1f",
+  laser: "#2f6dff",
+  mint: "#1faf5a",
+  cobalt: "#7c5cff",
+  gold: "#ffc21f",
+  coral: "#ff8a3f",
+  ice: "#1fc6c6",
+  plum: "#c54ad6",
 };
 
-// Roster status -> semantic console state.
-const STATE = { ready: "ok", active: "active", warning: "warn" };
+const esc = (s) =>
+  String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// Two visual channel states: steady green (ready) vs. lit amber (everything else).
+const stateOf = (status) => (status === "ready" ? "ok" : "busy");
+const accentOf = (agent) => ACCENTS[agent.accent] || (agent.accent && agent.accent.startsWith("#") ? agent.accent : "#15140f");
+const hhmm = (iso) => (iso && iso.includes("T") ? iso.split("T")[1].slice(0, 5) : "—");
 
 async function loadData() {
   try {
@@ -57,133 +74,105 @@ async function loadData() {
   }
 }
 
-function renderDashboard(payload) {
-  const live = payload.__source === "live";
+function renderChrome(payload) {
+  const live = payload.__source !== "fallback";
+  const arcade = payload.arcade || {};
 
-  document.getElementById("arcade-title").textContent = payload.arcade.title;
-  document.getElementById("arcade-subtitle").textContent = payload.arcade.subtitle;
+  document.getElementById("arcade-title").textContent = arcade.title || "Agent Arcade";
+  document.getElementById("model").textContent = `AA-8 · ${(arcade.location || "local").toUpperCase()}`;
 
   const badge = document.getElementById("source-badge");
   badge.dataset.live = String(live);
-  document.getElementById("source-text").textContent = live
-    ? "Live snapshot"
-    : "Sample data · file://";
+  document.getElementById("source-text").textContent = live ? "Live" : "Sample";
 
-  document.getElementById("generated-at").textContent = formatDate(payload.generated_at);
-  document.getElementById("location").textContent = payload.arcade.location || "local";
-  document.getElementById("branch").textContent = payload.repo?.branch || "—";
-
-  renderVitals(payload);
-  renderFleet(payload.agents || []);
-
-  const version = payload.hermes?.version?.version;
-  const build = payload.hermes?.version?.build;
-  document.getElementById("foot-version").textContent = version
-    ? `hermes v${version}${build ? ` · ${build}` : ""}`
-    : "hermes · unknown";
+  const stamp = (payload.generated_at || "").slice(0, 16).replace("T", " ");
+  document.getElementById("stamp").textContent = live
+    ? `live snapshot · ${stamp}`
+    : "sample data · file://";
 }
 
-function renderVitals(payload) {
+function renderLCD(payload) {
   const hermes = payload.hermes || {};
   const repo = payload.repo || {};
+  const version = hermes.version || {};
+  const cron = hermes.cron || {};
+  const jobs = cron.active_jobs ?? hermes.cron_list?.count ?? 0;
   const gatewayUp = !!hermes.gateway?.running;
-  const cronUp = !!hermes.cron?.running;
-  const cronCount = hermes.cron_list?.count ?? 0;
   const clean = !!repo.clean;
 
-  setVital("vital-hermes", {
-    value: hermes.version?.version || "unknown",
-    sub: hermes.version?.build ? `build ${hermes.version.build}` : "version unknown",
-    state: hermes.version?.version ? "ok" : "warn",
-  });
+  const segs = [
+    ["VER", `v${version.version || "?"}`, false],
+    ["GATE", gatewayUp ? "ON" : "OFF", !gatewayUp],
+    ["CRON", `${jobs} JOBS`, !cron.running],
+    ["GIT", clean ? "CLEAN" : `${repo.changed_files ?? 0}Δ`, !clean],
+    ["NEXT", cron.running ? hhmm(cron.next_run) : "—", !cron.running],
+  ];
 
-  setVital("vital-gateway", {
-    value: gatewayUp ? "Online" : "Offline",
-    sub: hermes.gateway?.pid ? `pid ${hermes.gateway.pid}` : gatewayUp ? "healthy" : "no process",
-    state: gatewayUp ? "ok" : "warn",
-  });
-
-  setVital("vital-cron", {
-    value: `${cronCount} ${cronCount === 1 ? "job" : "jobs"}`,
-    sub: cronUp
-      ? hermes.cron?.next_run
-        ? `next ${formatTime(hermes.cron.next_run)}`
-        : "running"
-      : "stopped",
-    state: cronUp ? "ok" : "warn",
-  });
-
-  setVital("vital-git", {
-    value: clean ? "Clean" : `${repo.changed_files ?? 0} changed`,
-    sub: repo.branch ? `branch ${repo.branch}` : "—",
-    state: clean ? "ok" : "active",
-  });
+  const scroll = `build ${version.build || "?"} · ${repo.branch || "—"} @ ${repo.head || "—"}`;
+  document.getElementById("lcd").innerHTML =
+    segs
+      .map(([k, v, warn]) => `<div class="seg"><span class="k">${k}</span><span class="v${warn ? " warn" : ""}">${esc(v)}</span></div>`)
+      .join("") +
+    `<span class="spacer"></span><span class="scroll">${esc(scroll)}</span>`;
 }
 
-function setVital(id, { value, sub, state }) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.dataset.state = state;
-  el.querySelector(".vital-num").textContent = value;
-  el.querySelector(".vital-sub").textContent = sub;
+function renderMixer(payload) {
+  const agents = payload.agents || [];
+  document.getElementById("mixer-label").textContent = `Fleet · ${agents.length} channels`;
+
+  document.getElementById("mixer").innerHTML = agents
+    .map((a, i) => {
+      const s = stateOf(a.status);
+      const lit = s === "ok" ? 5 : 3;
+      const meter = Array.from({ length: 5 }, (_, m) => `<i class="${m < lit ? "on" : ""}"></i>`).join("");
+      const capTop = s === "ok" ? 10 : 42; // fader cap position (%)
+      const rot = `${-58 + i * 16}deg`; // varied knob angle for visual rhythm
+      const num = String(a.order ?? i + 1).padStart(2, "0");
+      return `
+      <div class="ch" data-s="${s}" style="--ac:${esc(accentOf(a))}">
+        <div class="ch-top">
+          <span class="ch-num">${esc(num)}</span>
+          <span class="knob" style="--rot:${rot}"></span>
+        </div>
+        <div>
+          <div class="ch-name">${esc(a.label || a.id || "—")}</div>
+          <div class="ch-role">${esc(a.role || "")}</div>
+        </div>
+        <div class="ch-bottom">
+          <div class="meter">${meter}</div>
+          <div class="fader"><div class="track"></div><div class="cap" style="top:${capTop}%"></div></div>
+          <div class="ch-meta">
+            <span class="ch-state">${esc(a.status || "ready")}</span>
+            <span class="ch-cab">${esc(a.cabinet || "")}</span>
+          </div>
+        </div>
+      </div>`;
+    })
+    .join("");
 }
 
-function renderFleet(agents) {
-  const list = document.getElementById("fleet");
-  const template = document.getElementById("agent-row");
-  list.replaceChildren();
-
-  const counts = { ok: 0, active: 0, warn: 0 };
-
-  agents.forEach((agent, index) => {
-    const state = STATE[agent.status] || "ok";
-    counts[state] += 1;
-
-    const fragment = template.content.cloneNode(true);
-    const row = fragment.querySelector(".unit");
-    row.dataset.state = state;
-
-    const mono = fragment.querySelector(".unit-mono");
-    mono.textContent = (agent.label || "?").trim().charAt(0).toUpperCase();
-    if (ACCENTS[agent.accent]) mono.style.setProperty("--accent", ACCENTS[agent.accent]);
-
-    fragment.querySelector(".unit-name").textContent = agent.label || agent.id || "Unknown";
-    fragment.querySelector(".unit-cabinet").textContent = agent.cabinet || agent.id || "";
-    fragment.querySelector(".unit-role").textContent = agent.role || "";
-    fragment.querySelector(".unit-signal").textContent = agent.signal || "Standing by.";
-    fragment.querySelector(".unit-status").textContent = agent.status || "ready";
-    fragment.querySelector(".unit-index").textContent = String(agent.order ?? index + 1);
-
-    row.style.transitionDelay = `${Math.min(index * 45, 400)}ms`;
-    list.appendChild(fragment);
-  });
-
-  const summary = [
-    `${counts.ok} ready`,
-    `${counts.active} active`,
-    counts.warn ? `${counts.warn} warning` : null,
-  ].filter(Boolean);
-  document.getElementById("roster-summary").textContent =
-    `${agents.length} agents · ${summary.join(" · ")}`;
-
-  // One orchestrated reveal — stagger the rows on the next frame.
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      list.querySelectorAll(".unit").forEach((row) => row.classList.add("is-in"));
-    });
-  });
+function renderPatch(payload) {
+  const entries = payload.hermes?.cron_list?.entries || [];
+  document.getElementById("patch").innerHTML = entries
+    .map((c) => {
+      const on = (c.state || "active") === "active";
+      const next = (c.next_run || "").slice(5, 16).replace("T", " ") || "—";
+      return `
+      <div class="jack">
+        <span class="toggle${on ? "" : " off"}" role="img" aria-label="${on ? "enabled" : "disabled"}"></span>
+        <span class="jack-name">${esc(c.name)}</span>
+        <span class="jack-cron">${esc(c.schedule || "")}</span>
+        <span class="jack-next">${esc(next)}</span>
+      </div>`;
+    })
+    .join("");
 }
 
-function formatDate(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value || "—";
-  return date.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
-}
-
-function formatTime(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+function renderDashboard(payload) {
+  renderChrome(payload);
+  renderLCD(payload);
+  renderMixer(payload);
+  renderPatch(payload);
 }
 
 loadData().then(renderDashboard);
