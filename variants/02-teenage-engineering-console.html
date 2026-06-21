@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Agent Arcade — AA-8 Console</title>
+<style>
+  /* ============================================================
+     Agent Arcade · Variant 02 — AA-8 Console
+     A piece of hardware, not a webpage. Warm plastic plate, an
+     inset LCD readout, eight mixer channel strips (one per agent),
+     and a patch bay of scheduled routines on physical toggles.
+     Light, flat, primary-coloured, precise. System type only.
+     ============================================================ */
+
+  :root {
+    --paper:   #e7e4da;   /* desk / negative space */
+    --plate:   #f3f1ea;   /* device plastic */
+    --plate-2: #e9e6dd;   /* recessed plastic */
+    --ink:     #15140f;   /* near-black */
+    --ink-2:   #4b4940;
+    --faint:   #8c897c;
+    --line:    #d4d0c4;
+    --line-2:  #c4c0b2;
+
+    --orange:  #ff5a1f;   /* TE signal orange */
+    --lcd-bg:  #14180f;
+    --lcd:     #c7e36a;   /* phosphor green */
+    --lcd-dim: #5c6b3a;
+
+    --ok:      #1faf5a;
+    --busy:    #ff9e1f;
+
+    --sans: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", system-ui, sans-serif;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    color: var(--ink);
+    background:
+      repeating-linear-gradient(0deg, rgba(0,0,0,.012) 0 2px, transparent 2px 4px),
+      var(--paper);
+    padding: clamp(.75rem, 3vw, 2.5rem);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .device {
+    width: min(1040px, 100%);
+    margin: 0 auto;
+    background: var(--plate);
+    border-radius: 22px;
+    border: 1px solid var(--line-2);
+    box-shadow:
+      0 1px 0 rgba(255,255,255,.7) inset,
+      0 2px 2px rgba(0,0,0,.05),
+      0 24px 50px -28px rgba(0,0,0,.4);
+    padding: clamp(1.1rem, 2.5vw, 2rem);
+    position: relative;
+  }
+  /* corner screws */
+  .screw {
+    position: absolute; width: 13px; height: 13px; border-radius: 50%;
+    background:
+      linear-gradient(var(--ink-2), var(--ink-2)) center/8px 1.5px no-repeat,
+      radial-gradient(circle at 35% 30%, #fff, #b9b5a8 60%, #8d897b);
+    box-shadow: 0 1px 1px rgba(0,0,0,.25), 0 0 0 1px rgba(0,0,0,.08) inset;
+  }
+  .screw.tl{top:12px;left:12px} .screw.tr{top:12px;right:12px}
+  .screw.bl{bottom:12px;left:12px} .screw.br{bottom:12px;right:12px}
+
+  /* ---------- header plate ---------- */
+  .head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem; flex-wrap: wrap;
+    padding: .2rem .4rem 1.1rem;
+  }
+  .wordmark { display: flex; align-items: baseline; gap: .7rem; }
+  .wordmark h1 {
+    margin: 0; font-size: clamp(1.4rem, 3.4vw, 2.1rem);
+    font-weight: 800; letter-spacing: -.02em; text-transform: uppercase;
+  }
+  .model {
+    font-family: var(--mono); font-size: .7rem; font-weight: 600;
+    letter-spacing: .06em; color: var(--plate);
+    background: var(--ink); padding: .28rem .5rem; border-radius: 5px;
+  }
+  .head-right { display: flex; align-items: center; gap: 1.1rem; }
+  .palette-chips { display: flex; gap: 5px; }
+  .palette-chips i { width: 13px; height: 13px; border-radius: 3px; display: block; }
+  .rec {
+    display: inline-flex; align-items: center; gap: .5rem;
+    font-family: var(--mono); font-size: .68rem; font-weight: 600;
+    letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2);
+  }
+  .rec .led {
+    width: 9px; height: 9px; border-radius: 50%; background: var(--orange);
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--orange) 60%, transparent);
+    animation: blink 1.8s steps(1) infinite;
+  }
+  @keyframes blink { 0%,55%{opacity:1} 56%,100%{opacity:.25} }
+
+  /* ---------- LCD readout ---------- */
+  .lcd {
+    background:
+      repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0 1px, transparent 1px 3px),
+      var(--lcd-bg);
+    border-radius: 10px;
+    border: 1px solid #0a0d06;
+    box-shadow: 0 2px 5px rgba(0,0,0,.25) inset, 0 1px 0 rgba(255,255,255,.5);
+    padding: .85rem 1.1rem;
+    display: flex; flex-wrap: wrap; gap: 1rem 1.6rem; align-items: center;
+    margin-bottom: 1.2rem;
+  }
+  .lcd .seg { display: flex; flex-direction: column; gap: .15rem; }
+  .lcd .seg .k { font-family: var(--mono); font-size: .58rem; letter-spacing: .16em; color: var(--lcd-dim); text-transform: uppercase; }
+  .lcd .seg .v { font-family: var(--mono); font-size: 1.02rem; font-weight: 600; color: var(--lcd); letter-spacing: .02em; text-shadow: 0 0 7px color-mix(in oklab, var(--lcd) 45%, transparent); }
+  .lcd .seg .v.warn { color: var(--busy); text-shadow: 0 0 7px color-mix(in oklab, var(--busy) 45%, transparent); }
+  .lcd .spacer { flex: 1; }
+  .lcd .scroll { font-family: var(--mono); font-size: .72rem; color: var(--lcd-dim); white-space: nowrap; overflow: hidden; max-width: 40%; }
+
+  /* ---------- section labels ---------- */
+  .strip-label {
+    display: flex; align-items: center; gap: .7rem;
+    margin: 0 .3rem .7rem;
+    font-family: var(--mono); font-size: .66rem; font-weight: 700;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--ink-2);
+  }
+  .strip-label::after { content: ""; flex: 1; height: 2px; background: repeating-linear-gradient(90deg, var(--line-2) 0 6px, transparent 6px 10px); }
+
+  /* ---------- channel strips ---------- */
+  .mixer {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 1.6rem;
+  }
+  .ch {
+    background: var(--plate-2);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: .8rem .75rem .7rem;
+    display: grid;
+    grid-template-rows: auto auto auto 1fr;
+    gap: .55rem;
+    box-shadow: 0 1px 0 rgba(255,255,255,.6) inset;
+  }
+  .ch-top { display: flex; align-items: center; justify-content: space-between; }
+  .ch-num { font-family: var(--mono); font-size: 1.5rem; font-weight: 800; line-height: 1; letter-spacing: -.04em; color: var(--ink); }
+  .ch-num small { font-size: .85rem; color: var(--faint); }
+
+  /* knob */
+  .knob {
+    --rot: 0deg;
+    width: 34px; height: 34px; border-radius: 50%;
+    background:
+      radial-gradient(circle at 38% 32%, #fff, var(--plate) 55%, var(--plate-2));
+    border: 1px solid var(--line-2);
+    box-shadow: 0 1px 2px rgba(0,0,0,.18);
+    position: relative;
+  }
+  .knob::after {
+    content: ""; position: absolute; left: 50%; top: 4px;
+    width: 3px; height: 11px; border-radius: 2px;
+    background: var(--ac, var(--ink));
+    transform: translateX(-50%) rotate(var(--rot));
+    transform-origin: 50% 13px;
+  }
+  .knob::before {
+    content: ""; position: absolute; inset: -4px; border-radius: 50%;
+    border: 2px solid color-mix(in oklab, var(--ac, var(--ink)) 45%, transparent);
+  }
+
+  .ch-name { font-size: .98rem; font-weight: 700; letter-spacing: -.01em; }
+  .ch-role { font-family: var(--mono); font-size: .62rem; letter-spacing: .04em; color: var(--faint); text-transform: uppercase; margin-top: 1px; }
+
+  /* fader + meter */
+  .ch-bottom { display: flex; align-items: stretch; gap: .7rem; padding-top: .2rem; }
+  .meter { display: flex; flex-direction: column-reverse; gap: 3px; width: 16px; }
+  .meter i { height: 8px; border-radius: 2px; background: var(--line); }
+  .ch[data-s="ok"]   .meter i.on { background: var(--ok); }
+  .ch[data-s="busy"] .meter i.on { background: var(--busy); }
+  .fader {
+    flex: 1; position: relative; border-radius: 6px;
+    background: var(--plate);
+    border: 1px solid var(--line);
+    min-height: 64px;
+  }
+  .fader .track { position: absolute; left: 50%; top: 8px; bottom: 8px; width: 3px; transform: translateX(-50%); background: var(--line-2); border-radius: 2px; }
+  .fader .cap {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    width: 26px; height: 14px; border-radius: 4px;
+    background: var(--ink);
+    box-shadow: 0 1px 2px rgba(0,0,0,.3), 0 1px 0 rgba(255,255,255,.15) inset;
+  }
+  .fader .cap::after { content:""; position:absolute; left:4px; right:4px; top:50%; height:2px; background: var(--orange); transform: translateY(-50%); }
+  .ch-meta { display: flex; flex-direction: column; justify-content: flex-end; gap: .3rem; min-width: 0; }
+  .ch-state {
+    align-self: flex-start;
+    font-family: var(--mono); font-size: .6rem; font-weight: 700;
+    letter-spacing: .1em; text-transform: uppercase;
+    padding: .18rem .4rem; border-radius: 4px;
+  }
+  .ch[data-s="ok"]   .ch-state { color: #0a5e2f; background: color-mix(in oklab, var(--ok) 22%, var(--plate)); }
+  .ch[data-s="busy"] .ch-state { color: #8a4a00; background: color-mix(in oklab, var(--busy) 28%, var(--plate)); }
+  .ch-cab { font-family: var(--mono); font-size: .62rem; color: var(--faint); }
+
+  /* ---------- patch bay (cron) ---------- */
+  .patch {
+    background: var(--plate-2);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: .4rem .2rem;
+  }
+  .jack {
+    display: grid;
+    grid-template-columns: 46px 1fr auto auto;
+    align-items: center;
+    gap: .9rem;
+    padding: .6rem .9rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .jack:last-child { border-bottom: none; }
+  .toggle {
+    width: 40px; height: 22px; border-radius: 12px; position: relative;
+    background: color-mix(in oklab, var(--ok) 30%, var(--plate));
+    border: 1px solid var(--line-2);
+    box-shadow: 0 1px 2px rgba(0,0,0,.12) inset;
+  }
+  .toggle::after {
+    content: ""; position: absolute; top: 2px; right: 2px;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fff, #e2dfd3);
+    box-shadow: 0 1px 2px rgba(0,0,0,.25);
+  }
+  .jack-name { font-weight: 650; font-size: .9rem; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .jack-cron { font-family: var(--mono); font-size: .72rem; color: var(--ink-2); white-space: nowrap; }
+  .jack-next { font-family: var(--mono); font-size: .72rem; color: var(--faint); text-align: right; white-space: nowrap; }
+
+  /* ---------- transport footer ---------- */
+  .transport {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem; flex-wrap: wrap;
+    margin-top: 1.4rem; padding-top: 1rem;
+    border-top: 2px solid var(--line-2);
+  }
+  .keys { display: flex; gap: 8px; }
+  .keys button {
+    width: 34px; height: 28px; border-radius: 6px;
+    border: 1px solid var(--line-2); background: var(--plate);
+    color: var(--ink-2); font-size: .8rem; cursor: pointer;
+    box-shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 1px 2px rgba(0,0,0,.1);
+  }
+  .keys button.accent { background: var(--orange); color: #fff; border-color: #d8480f; }
+  .stamp { font-family: var(--mono); font-size: .68rem; letter-spacing: .08em; color: var(--faint); text-transform: uppercase; }
+
+  @media (max-width: 860px) { .mixer { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 720px) {
+    .lcd .scroll { display: none; }
+    .jack { grid-template-columns: 40px 1fr auto; }
+    .jack-cron { display: none; }
+  }
+  @media (max-width: 440px) { .mixer { grid-template-columns: 1fr; } }
+  @media (prefers-reduced-motion: reduce) { .rec .led { animation: none; } }
+</style>
+</head>
+<body>
+  <main class="device">
+    <span class="screw tl"></span><span class="screw tr"></span><span class="screw bl"></span><span class="screw br"></span>
+
+    <header class="head">
+      <div class="wordmark">
+        <h1>Agent Arcade</h1>
+        <span class="model" id="model">AA-8 · LOCAL</span>
+      </div>
+      <div class="head-right">
+        <div class="palette-chips" aria-hidden="true">
+          <i style="background:#ff5a1f"></i><i style="background:#1faf5a"></i>
+          <i style="background:#2f6dff"></i><i style="background:#ffc21f"></i>
+          <i style="background:#15140f"></i>
+        </div>
+        <span class="rec"><span class="led"></span> Live</span>
+      </div>
+    </header>
+
+    <section class="lcd" id="lcd" aria-label="System readout"></section>
+
+    <div class="strip-label">Fleet · 8 channels</div>
+    <section class="mixer" id="mixer"></section>
+
+    <div class="strip-label">Patch bay · scheduled routines</div>
+    <section class="patch" id="patch"></section>
+
+    <footer class="transport">
+      <div class="keys" aria-hidden="true">
+        <button>◀</button><button>▶</button><button class="accent">●</button><button>■</button>
+      </div>
+      <span class="stamp" id="stamp">read-only · no sends · no config writes</span>
+    </footer>
+  </main>
+
+<script>
+const FALLBACK = {
+  generated_at:"2026-06-21T15:01:44-04:00",
+  hermes:{ version:{version:"0.17.0", build:"2026.6.19"}, gateway:{pid:76095}, cron:{active_jobs:10, next:"18:00"} },
+  repo:{branch:"main", head:"7ab318b", changed_files:8},
+  agents:[
+    {label:"Rogue", role:"Control plane", cabinet:"command-deck", accent:"#ff5a1f", status:"ready", signal:"All systems stable."},
+    {label:"Codex", role:"Primary builder", cabinet:"builder-bay", accent:"#2f6dff", status:"ready", signal:"All systems stable."},
+    {label:"Claude Code", role:"Deep reviewer", cabinet:"review-rail", accent:"#1faf5a", status:"ready", signal:"All systems stable."},
+    {label:"Scout", role:"Repo ranger", cabinet:"branch-radar", accent:"#7c5cff", status:"active", signal:"8 files changed."},
+    {label:"Sentinel", role:"Gateway watcher", cabinet:"pulse-tower", accent:"#ffc21f", status:"ready", signal:"All systems stable."},
+    {label:"Ticker", role:"Scheduler monitor", cabinet:"clockwork", accent:"#ff8a3f", status:"ready", signal:"All systems stable."},
+    {label:"Patchbay", role:"Local automation", cabinet:"wire-mesh", accent:"#1fc6c6", status:"active", signal:"10 routines detected."},
+    {label:"Archivist", role:"Snapshot keeper", cabinet:"memory-vault", accent:"#c54ad6", status:"active", signal:"Writing snapshots."}
+  ],
+  cron:[
+    {name:"morning-operating-brief", schedule:"0 8 * * 1-5", next:"Mon 08:00"},
+    {name:"weekly-rogue-fiction-draft", schedule:"0 20 * * 0", next:"20:00"},
+    {name:"rogue-watchdog-health-monitor", schedule:"0 */6 * * *", next:"18:00"},
+    {name:"family-weekend-weather-and-outing-brief", schedule:"30 8 * * 5", next:"Fri 08:30"},
+    {name:"rogue-pregnancy-weekly", schedule:"0 19 * * 0", next:"19:00"},
+    {name:"rogue-knowledge-curated-sync", schedule:"20 21 * * *", next:"21:20"},
+    {name:"rogue-pr-babysitter-loop", schedule:"0 8-18 * * 1-5", next:"Mon 08:00"},
+    {name:"rogue-personal-site-loop", schedule:"0 */6 * * *", next:"18:00"},
+    {name:"rogue-knowledge-hygiene-loop", schedule:"30 21 * * *", next:"21:30"},
+    {name:"rogue-disk-hygiene-watchdog", schedule:"0 */6 * * *", next:"18:00"}
+  ]
+};
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const stateOf = s => s === "ready" ? "ok" : "busy";
+
+function renderLCD(d){
+  const h = d.hermes;
+  const segs = [
+    ["VER", "v"+h.version.version, false],
+    ["GATE", "ON", false],
+    ["CRON", h.cron.active_jobs+" JOBS", false],
+    ["GIT", d.repo.changed_files+"Δ", true],
+    ["NEXT", h.cron.next, false]
+  ];
+  document.getElementById("lcd").innerHTML =
+    segs.map(([k,v,w]) => `<div class="seg"><span class="k">${k}</span><span class="v${w?" warn":""}">${esc(v)}</span></div>`).join("")
+    + `<span class="spacer"></span><span class="scroll">${esc("build "+h.version.build+" · "+d.repo.branch+" @ "+d.repo.head)}</span>`;
+}
+
+function renderMixer(d){
+  document.getElementById("mixer").innerHTML = d.agents.map((a,i) => {
+    const s = stateOf(a.status);
+    const lit = s === "ok" ? 5 : 3;
+    const meter = Array.from({length:5}, (_,m) => `<i class="${m<lit?'on':''}"></i>`).join("");
+    const capTop = s === "ok" ? 10 : 42;       // fader cap position (%)
+    const rot = (-58 + i*16) + "deg";          // varied knob angle for visual rhythm
+    return `
+      <div class="ch" data-s="${s}" style="--ac:${a.accent}">
+        <div class="ch-top">
+          <span class="ch-num">${String(i+1).padStart(2,"0")}</span>
+          <span class="knob" style="--rot:${rot}"></span>
+        </div>
+        <div>
+          <div class="ch-name">${esc(a.label)}</div>
+          <div class="ch-role">${esc(a.role)}</div>
+        </div>
+        <div class="ch-bottom">
+          <div class="meter">${meter}</div>
+          <div class="fader"><div class="track"></div><div class="cap" style="top:${capTop}%"></div></div>
+          <div class="ch-meta">
+            <span class="ch-state">${esc(a.status)}</span>
+            <span class="ch-cab">${esc(a.cabinet)}</span>
+          </div>
+        </div>
+      </div>`;
+  }).join("");
+}
+
+function renderPatch(d){
+  document.getElementById("patch").innerHTML = d.cron.map(c => `
+    <div class="jack">
+      <span class="toggle" role="img" aria-label="enabled"></span>
+      <span class="jack-name">${esc(c.name)}</span>
+      <span class="jack-cron">${esc(c.schedule)}</span>
+      <span class="jack-next">${esc(c.next)}</span>
+    </div>`).join("");
+}
+
+function boot(d){ renderLCD(d); renderMixer(d); renderPatch(d); }
+boot(FALLBACK);
+
+if (location.protocol.startsWith("http")) {
+  fetch("../data/latest.json").then(r=>r.ok?r.json():null).then(j=>{
+    if(!j) return;
+    const d = {
+      generated_at:j.generated_at,
+      hermes:{ version:j.hermes.version, gateway:j.hermes.gateway, cron:{active_jobs:j.hermes.cron.active_jobs, next:(j.hermes.cron.next_run||"").slice(11,16)} },
+      repo:j.repo,
+      agents:j.agents.map(a=>({label:a.label, role:a.role, cabinet:a.cabinet, accent:FALLBACK.agents.find(x=>x.label===a.label)?.accent||"#15140f", status:a.status, signal:a.signal})),
+      cron:j.hermes.cron_list.entries.map(c=>({name:c.name, schedule:c.schedule, next:(c.next_run||"").slice(5,16).replace("T"," ")}))
+    };
+    document.getElementById("stamp").textContent = "live snapshot · " + j.generated_at.slice(0,16).replace("T"," ");
+    boot(d);
+  }).catch(()=>{});
+}
+</script>
+</body>
+</html>
