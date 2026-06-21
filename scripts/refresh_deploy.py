@@ -14,7 +14,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DIST = ROOT / "dist"
 PUBLIC_DOMAIN = "arcade.adrianlumley.co"
-PUBLIC_URL = f"https://{PUBLIC_DOMAIN}/"
+PUBLIC_URL = f"http://{PUBLIC_DOMAIN}/"
 GENERATED_EXCLUDES = {
     "dist",
     "data/latest.json",

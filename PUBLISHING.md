@@ -33,7 +33,7 @@ What it does:
 - validates the built `dist/` tree for common leaks before publish
 - commits and pushes `main` changes if there are any non-generated repo changes
 - publishes `dist/` to the `gh-pages` branch
-- prints the public URL: `https://arcade.adrianlumley.co/`
+- prints the public URL: `http://arcade.adrianlumley.co/` until GitHub finishes HTTPS certificate provisioning
 
 Useful variants:
 
