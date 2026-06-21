@@ -9,10 +9,14 @@ ROOT = Path(__file__).resolve().parent.parent
 DIST = ROOT / "dist"
 APP = ROOT / "app"
 DATA = ROOT / "data" / "latest.json"
+SUMMON = ROOT / "data" / "summon.json"
 
 SAFE_AGENT_FIELDS = {
     "id", "label", "role", "tagline", "cabinet", "accent", "order", "status", "signal"
 }
+SUMMON_PERSONAS = {"gremlin", "archivist", "scout", "bard"}
+SUMMON_BODY_LIMIT = 280
+SUMMON_TELEGRAM_LIMIT = 1200
 
 
 def copy_tree(src: Path, dst: Path) -> None:
@@ -79,6 +83,42 @@ def safe_payload(payload: dict) -> dict:
     }
 
 
+def clamp_text(value: str, limit: int) -> str:
+    text = " ".join(str(value or "").split())
+    if len(text) <= limit:
+        return text
+    return text[: max(0, limit - 1)].rstrip() + "…"
+
+
+def safe_summon(payload: dict) -> dict:
+    safe_cartridges = []
+    for cartridge in payload.get("cartridges", []):
+        persona = cartridge.get("persona")
+        if persona not in SUMMON_PERSONAS:
+            continue
+        safe_cartridges.append(
+            {
+                "persona": persona,
+                "label": cartridge.get("label"),
+                "slot": cartridge.get("slot"),
+                "accent": cartridge.get("accent"),
+                "stamp": cartridge.get("stamp"),
+                "headline": clamp_text(cartridge.get("headline", ""), 96),
+                "body": clamp_text(cartridge.get("body", ""), SUMMON_BODY_LIMIT),
+                "telegram": clamp_text(cartridge.get("telegram", ""), 320),
+            }
+        )
+
+    return {
+        "generated_at": payload.get("generated_at"),
+        "source_snapshot": payload.get("source_snapshot"),
+        "requested": [name for name in payload.get("requested", []) if name in SUMMON_PERSONAS],
+        "cartridge_count": len(safe_cartridges),
+        "telegram": clamp_text(payload.get("telegram", ""), SUMMON_TELEGRAM_LIMIT),
+        "cartridges": safe_cartridges,
+    }
+
+
 def main() -> int:
     if not DATA.exists():
         raise SystemExit("data/latest.json missing; run scripts/collect_state.py first")
@@ -91,6 +131,12 @@ def main() -> int:
 
     payload = json.loads(DATA.read_text(encoding="utf-8"))
     (DIST / "data" / "latest.json").write_text(json.dumps(safe_payload(payload), indent=2) + "\n", encoding="utf-8")
+    if SUMMON.exists():
+        summon_payload = json.loads(SUMMON.read_text(encoding="utf-8"))
+        (DIST / "data" / "summon.json").write_text(
+            json.dumps(safe_summon(summon_payload), indent=2) + "\n",
+            encoding="utf-8",
+        )
 
     # Make root URL work.
     root_index = DIST / "index.html"
@@ -104,7 +150,11 @@ def main() -> int:
 """, encoding="utf-8")
 
     print(f"Built {DIST}")
-    print("Included: app/, data/latest.json, index.html")
+    included = "Included: app/, data/latest.json"
+    if SUMMON.exists():
+        included += ", data/summon.json"
+    included += ", index.html"
+    print(included)
     return 0
 
 

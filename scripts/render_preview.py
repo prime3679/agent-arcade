@@ -22,10 +22,12 @@ PAD = 40             # plate inner padding
 
 def render() -> Path:
     payload = t.load_data()
+    summon = t.load_summon() or {}
     agents = payload.get("agents", [])
     hermes = payload.get("hermes", {})
     repo = payload.get("repo", {})
     entries = hermes.get("cron_list", {}).get("entries", [])
+    cartridges = summon.get("cartridges", [])
 
     x0 = MARGIN + PAD
     x1 = W - MARGIN - PAD
@@ -40,6 +42,11 @@ def render() -> Path:
     mixer_h = rows * card_h + (rows - 1) * grid_gap
     jack_h, patch_pad = 46, 14
     patch_h = max(1, len(entries)) * jack_h + 2 * patch_pad
+    summon_cols = 2
+    summon_gap = 14
+    summon_card_h = 150
+    summon_rows = (len(cartridges) + summon_cols - 1) // summon_cols if cartridges else 0
+    summon_h = summon_rows * summon_card_h + max(0, summon_rows - 1) * summon_gap if summon_rows else 0
     foot_h = 52
 
     header_y = MARGIN + PAD
@@ -48,7 +55,9 @@ def render() -> Path:
     grid_y = mixer_label_y + label_h
     patch_label_y = grid_y + mixer_h + 26
     patch_y = patch_label_y + label_h
-    foot_y = patch_y + patch_h + 24
+    summon_label_y = patch_y + patch_h + 26 if summon_rows else None
+    summon_y = summon_label_y + label_h if summon_label_y is not None else None
+    foot_y = (summon_y + summon_h + 24) if summon_y is not None else (patch_y + patch_h + 24)
     plate_bottom = foot_y + foot_h + PAD
     H = plate_bottom + MARGIN
 
@@ -175,6 +184,43 @@ def render() -> Path:
         d.text((x1 - 16 - t.text_len(d, nxt, f_cron), mid - 9), nxt, font=f_cron, fill=t.FAINT)
         if i < len(entries) - 1:
             d.line((x0 + 14, ry + jack_h, x1 - 14, ry + jack_h), fill=t.LINE, width=1)
+
+    # ---- cartridge bay ----
+    if summon_rows:
+        _strip_label(d, x0, x1, summon_label_y, "Cartridge bay · summon mode")
+        summon_card_w = (inner - summon_gap) / summon_cols
+        f_cart_num = t.font(24, "Heavy", mono=True)
+        f_cart_stamp = t.font(12, "Bold", mono=True)
+        f_cart_label = t.font(18, "Heavy")
+        f_cart_slot = t.font(12, "Medium", mono=True)
+        f_cart_head = t.font(15, "Bold")
+        f_cart_body = t.font(14, "Regular")
+        accent_map = {
+            "orange": t.ORANGE,
+            "plum": t.ACCENTS["plum"],
+            "cobalt": t.ACCENTS["cobalt"],
+            "yellow": t.ACCENTS["gold"],
+        }
+        for i, cartridge in enumerate(cartridges):
+            col, row = i % summon_cols, i // summon_cols
+            cx0 = x0 + col * (summon_card_w + summon_gap)
+            cy0 = summon_y + row * (summon_card_h + summon_gap)
+            t.plate(d, (cx0, cy0, cx0 + summon_card_w, cy0 + summon_card_h), radius=14, recessed=True)
+            accent = accent_map.get(cartridge.get("accent"), t.ORANGE)
+            d.rounded_rectangle((cx0, cy0, cx0 + 10, cy0 + summon_card_h), radius=14, fill=accent)
+            d.text((cx0 + 24, cy0 + 14), str(i + 1).zfill(2), font=f_cart_num, fill=t.INK)
+            stamp = (cartridge.get("stamp") or "manual summon").upper()
+            t.tracked(d, (cx0 + summon_card_w - 18 - _tracked_w(d, stamp, f_cart_stamp, 1.0), cy0 + 18), stamp, f_cart_stamp, t.INK2, tracking=1.0)
+            label = (cartridge.get("label") or cartridge.get("persona") or "Cartridge").upper()
+            d.text((cx0 + 24, cy0 + 48), label, font=f_cart_label, fill=t.INK)
+            slot = (cartridge.get("slot") or "bay").upper()
+            t.tracked(d, (cx0 + 24, cy0 + 74), slot, f_cart_slot, t.FAINT, tracking=1.0)
+            headline = t.clamp_text(cartridge.get("headline", ""), 60)
+            d.rounded_rectangle((cx0 + 24, cy0 + 94, cx0 + summon_card_w - 18, cy0 + 118), radius=8, fill=t.mix(accent, t.PLATE, 0.16))
+            d.text((cx0 + 32, cy0 + 99), headline, font=f_cart_head, fill=t.INK)
+            body_lines = t.wrap_text(d, cartridge.get("body", ""), f_cart_body, summon_card_w - 42, 2)
+            for line_index, line in enumerate(body_lines):
+                d.text((cx0 + 24, cy0 + 123 + line_index * 16), line, font=f_cart_body, fill=t.INK2)
 
     # ---- transport footer ----
     d.line((x0, foot_y, x1, foot_y), fill=t.LINE2, width=2)

@@ -24,8 +24,12 @@
   --ok:      #1faf5a;
   --busy:    #ff9e1f;
 
-  --sans: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", system-ui, sans-serif;
-  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+  --yellow:  #ffd84a;
+  --blue:    #2f6dff;
+  --plum:    #c54ad6;
+
+  --sans: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
+  --mono: "SF Mono", "JetBrains Mono", Menlo, monospace;
 }
 
 * { box-sizing: border-box; }
@@ -127,6 +131,7 @@ body {
   letter-spacing: .16em; text-transform: uppercase; color: var(--ink-2);
 }
 .strip-label::after { content: ""; flex: 1; height: 2px; background: repeating-linear-gradient(90deg, var(--line-2) 0 6px, transparent 6px 10px); }
+.is-hidden { display: none !important; }
 
 /* ---------- channel strips ---------- */
 .mixer {
@@ -239,6 +244,92 @@ body {
 .jack-cron { font-family: var(--mono); font-size: .72rem; color: var(--ink-2); white-space: nowrap; }
 .jack-next { font-family: var(--mono); font-size: .72rem; color: var(--faint); text-align: right; white-space: nowrap; }
 
+/* ---------- cartridge bay (summon mode) ---------- */
+.summon {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: .2rem;
+}
+.cart {
+  --cart-accent: var(--orange);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.4), rgba(255,255,255,0)),
+    var(--plate-2);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: .85rem .95rem 1rem;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.65) inset,
+    0 10px 20px -18px rgba(0,0,0,.3);
+  position: relative;
+  overflow: hidden;
+}
+.cart::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 10px;
+  background: var(--cart-accent);
+}
+.cart[data-accent="orange"] { --cart-accent: var(--orange); }
+.cart[data-accent="plum"] { --cart-accent: var(--plum); }
+.cart[data-accent="cobalt"] { --cart-accent: var(--blue); }
+.cart[data-accent="yellow"] { --cart-accent: var(--yellow); }
+.cart-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  padding-left: .2rem;
+}
+.cart-num {
+  font-family: var(--mono);
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -.06em;
+}
+.cart-stamp {
+  font-family: var(--mono);
+  font-size: .62rem;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.cart-label {
+  margin-top: .45rem;
+  padding-left: .2rem;
+  font-size: 1rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+.cart-slot {
+  margin-top: .15rem;
+  padding-left: .2rem;
+  font-family: var(--mono);
+  font-size: .66rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.cart-head {
+  margin-top: .75rem;
+  padding: .5rem .6rem;
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--cart-accent) 16%, var(--plate));
+  font-weight: 700;
+  line-height: 1.25;
+}
+.cart-body {
+  margin: .7rem 0 0;
+  padding-left: .2rem;
+  font-size: .88rem;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+
 /* ---------- transport footer ---------- */
 .transport {
   display: flex; align-items: center; justify-content: space-between;
@@ -261,6 +352,7 @@ body {
   .lcd .scroll { display: none; }
   .jack { grid-template-columns: 40px 1fr auto; }
   .jack-cron { display: none; }
+  .summon { grid-template-columns: 1fr; }
 }
 @media (max-width: 440px) { .mixer { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) { .rec .led { animation: none; } }

@@ -16,6 +16,7 @@ from PIL import ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data" / "latest.json"
+SUMMON = ROOT / "data" / "summon.json"
 
 # ---- Palette (RGB), mirrors app/style.css ----------------------------------
 PAPER = (231, 228, 218)   # desk / negative space
@@ -59,6 +60,16 @@ _FALLBACK_MONO = "/System/Library/Fonts/Menlo.ttc"
 
 def load_data() -> dict:
     return json.loads(DATA.read_text(encoding="utf-8"))
+
+
+def load_optional_json(path: Path) -> dict | None:
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def load_summon() -> dict | None:
+    return load_optional_json(SUMMON)
 
 
 def font(size: int, weight: str = "Regular", mono: bool = False) -> ImageFont.FreeTypeFont:
@@ -206,3 +217,41 @@ def fmt_snapshot(value: str) -> str:
         return value or "—"
     date, rest = value.split("T", 1)
     return f"{date} {rest[:5]}"
+
+
+def clamp_text(value: str, limit: int) -> str:
+    text = (value or "").strip()
+    if len(text) <= limit:
+        return text
+    clipped = text[: max(0, limit - 1)].rstrip()
+    return f"{clipped}…"
+
+
+def wrap_text(draw, text: str, fnt, max_w: float, max_lines: int) -> list[str]:
+    words = (text or "").split()
+    if not words:
+        return []
+
+    lines: list[str] = []
+    current = words[0]
+    for word in words[1:]:
+        candidate = f"{current} {word}"
+        if text_len(draw, candidate, fnt) <= max_w:
+            current = candidate
+            continue
+        lines.append(current)
+        current = word
+        if len(lines) == max_lines - 1:
+            break
+
+    if len(lines) < max_lines:
+        remainder = current
+        if len(lines) == max_lines - 1:
+            remainder = ellipsize(draw, remainder, fnt, max_w)
+        lines.append(remainder)
+
+    if len(lines) > max_lines:
+        lines = lines[:max_lines]
+    if lines:
+        lines[-1] = ellipsize(draw, lines[-1], fnt, max_w)
+    return lines

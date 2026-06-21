@@ -41,6 +41,51 @@ const sampleData = {
   ],
 };
 
+const sampleSummon = {
+  generated_at: "2026-06-21T15:41:22-04:00",
+  source_snapshot: "2026-06-21T15:40:25-04:00",
+  requested: ["gremlin", "archivist", "scout", "bard"],
+  cartridge_count: 4,
+  cartridges: [
+    {
+      persona: "gremlin",
+      label: "Gremlin",
+      slot: "fault-lab",
+      accent: "orange",
+      stamp: "stress pass",
+      headline: "Probe the seams without touching config.",
+      body: "Workspace drift is visible: 3 changed, 1 staged, 2 untracked. Gateway is up, with 10 scheduled routines in the bay. Focus on awkward edges and anything that could jam a local-only flow.",
+    },
+    {
+      persona: "archivist",
+      label: "Archivist",
+      slot: "memory-vault",
+      accent: "plum",
+      stamp: "snapshot note",
+      headline: "Preserve the operator story in clean public-safe notes.",
+      body: "Latest snapshot landed this afternoon. Replayable state is active, Hermes is stable, and the scheduler inventory is visible for future diffing.",
+    },
+    {
+      persona: "scout",
+      label: "Scout",
+      slot: "branch-radar",
+      accent: "cobalt",
+      stamp: "repo sweep",
+      headline: "Sweep for drift, friction, and next repair targets.",
+      body: "Scout sees local change pressure and the next scheduler tick already lined up. Map the sharpest risks before they turn into operator confusion.",
+    },
+    {
+      persona: "bard",
+      label: "Bard",
+      slot: "signal-stage",
+      accent: "yellow",
+      stamp: "operator brief",
+      headline: "Turn the cabinet state into a crisp operator briefing.",
+      body: "Agent Arcade is local, the gateway is online, cron is loaded, and the fleet reads a little restless. Keep the copy sharp, warm, and compressed.",
+    },
+  ],
+};
+
 // Bright, primary-leaning identity colours for the channel knobs.
 const ACCENTS = {
   ember: "#ff5a1f",
@@ -63,14 +108,20 @@ const hhmm = (iso) => (iso && iso.includes("T") ? iso.split("T")[1].slice(0, 5) 
 
 async function loadData() {
   try {
-    const response = await fetch("../data/latest.json", { cache: "no-store" });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const payload = await response.json();
+    const [latestResponse, summonResponse] = await Promise.all([
+      fetch("../data/latest.json", { cache: "no-store" }),
+      fetch("../data/summon.json", { cache: "no-store" }).catch(() => null),
+    ]);
+    if (!latestResponse.ok) throw new Error(`HTTP ${latestResponse.status}`);
+    const payload = await latestResponse.json();
+    if (summonResponse && summonResponse.ok) {
+      payload.summon = await summonResponse.json();
+    }
     payload.__source = "live";
     return payload;
   } catch (error) {
     console.warn("Falling back to embedded sample data.", error);
-    return { ...sampleData, __source: "fallback" };
+    return { ...sampleData, summon: sampleSummon, __source: "fallback" };
   }
 }
 
@@ -168,11 +219,45 @@ function renderPatch(payload) {
     .join("");
 }
 
+function renderSummon(payload) {
+  const summon = payload.summon;
+  const label = document.getElementById("summon-label");
+  const bay = document.getElementById("summon");
+  const cartridges = summon?.cartridges || [];
+
+  if (!cartridges.length) {
+    label.classList.add("is-hidden");
+    bay.classList.add("is-hidden");
+    bay.innerHTML = "";
+    return;
+  }
+
+  label.classList.remove("is-hidden");
+  bay.classList.remove("is-hidden");
+  bay.innerHTML = cartridges
+    .map((cartridge, index) => {
+      const num = String(index + 1).padStart(2, "0");
+      return `
+      <article class="cart" data-accent="${esc(cartridge.accent || "orange")}">
+        <div class="cart-top">
+          <span class="cart-num">${esc(num)}</span>
+          <span class="cart-stamp">${esc(cartridge.stamp || "manual summon")}</span>
+        </div>
+        <div class="cart-label">${esc(cartridge.label || cartridge.persona || "Cartridge")}</div>
+        <div class="cart-slot">${esc(cartridge.slot || "bay")}</div>
+        <div class="cart-head">${esc(cartridge.headline || "")}</div>
+        <p class="cart-body">${esc(cartridge.body || "")}</p>
+      </article>`;
+    })
+    .join("");
+}
+
 function renderDashboard(payload) {
   renderChrome(payload);
   renderLCD(payload);
   renderMixer(payload);
   renderPatch(payload);
+  renderSummon(payload);
 }
 
 loadData().then(renderDashboard);

@@ -22,9 +22,11 @@ PAD = 30
 
 def render() -> Path:
     p = t.load_data()
+    summon = t.load_summon() or {}
     agents = p.get("agents", [])
     hermes = p.get("hermes", {})
     repo = p.get("repo", {})
+    cartridges = summon.get("cartridges", [])
 
     x0 = MARGIN + PAD
     x1 = W - MARGIN - PAD
@@ -35,13 +37,16 @@ def render() -> Path:
     chip_h, chip_gap = 64, 12
     rows = (len(agents[:8]) + 1) // 2
     fleet_h = rows * chip_h + (rows - 1) * chip_gap
+    summon_h = 70 if cartridges else 0
     foot_h = 30
 
     header_y = MARGIN + PAD
     lcd_y = header_y + header_h
     fleet_label_y = lcd_y + lcd_h + 18
     grid_y = fleet_label_y + label_h
-    foot_y = grid_y + fleet_h + 18
+    summon_label_y = grid_y + fleet_h + 18 if cartridges else None
+    summon_y = summon_label_y + label_h if summon_label_y is not None else None
+    foot_y = (summon_y + summon_h + 18) if summon_y is not None else (grid_y + fleet_h + 18)
     plate_bottom = foot_y + foot_h + PAD
     H = plate_bottom + MARGIN
 
@@ -141,6 +146,32 @@ def render() -> Path:
         bxr = cx0 + chip_w - 14
         d.rounded_rectangle((bxr - lw - 14, mid - 10, bxr, mid + 10), radius=4, fill=bg)
         t.tracked(d, (bxr - lw - 7, mid - 6), label, f_state, fg, tracking=1.0)
+
+    # ---- summon strip ----
+    if cartridges:
+        t.tracked(d, (x0 + 2, summon_label_y), "CARTRIDGE BAY · SUMMON MODE", f_label, t.INK2, tracking=1.5)
+        summary = f"{len(cartridges)} loaded"
+        d.text((x1 - t.text_len(d, summary, f_sub), summon_label_y + 1), summary, font=f_sub, fill=t.FAINT)
+        t.plate(d, (x0, summon_y, x1, summon_y + summon_h), radius=10, recessed=True)
+
+        f_cart = t.font(14, "Bold")
+        f_body = t.font(12, "Regular", mono=True)
+        card_gap = 10
+        card_w = (inner - card_gap * (len(cartridges) - 1)) / max(1, len(cartridges))
+        accent_map = {
+            "orange": t.ORANGE,
+            "plum": t.ACCENTS["plum"],
+            "cobalt": t.ACCENTS["cobalt"],
+            "yellow": t.ACCENTS["gold"],
+        }
+        for idx, cartridge in enumerate(cartridges):
+            cx0 = x0 + idx * (card_w + card_gap)
+            accent = accent_map.get(cartridge.get("accent"), t.ORANGE)
+            d.rounded_rectangle((cx0, summon_y, cx0 + card_w, summon_y + summon_h), radius=9, fill=t.PLATE, outline=t.LINE, width=1)
+            d.rounded_rectangle((cx0, summon_y, cx0 + 8, summon_y + summon_h), radius=9, fill=accent)
+            d.text((cx0 + 18, summon_y + 12), cartridge.get("label", cartridge.get("persona", "Cartridge")), font=f_cart, fill=t.INK)
+            for line_index, line in enumerate(t.wrap_text(d, cartridge.get("headline", ""), f_body, card_w - 28, 2)):
+                d.text((cx0 + 18, summon_y + 34 + line_index * 14), line, font=f_body, fill=t.INK2)
 
     # ---- footer ----
     d.line((x0, foot_y, x1, foot_y), fill=t.LINE2, width=1)
