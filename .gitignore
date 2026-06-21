@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 .DS_Store
 dist/
+logs/
 data/latest.json
 data/summon.json
 data/runs/*.json
