@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Agent Arcade</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div class="backdrop"></div>
+    <main class="shell">
+      <section class="hero">
+        <p class="eyebrow">Local Static Dashboard</p>
+        <h1 id="arcade-title">Agent Arcade</h1>
+        <p id="arcade-subtitle" class="hero-copy">
+          Cabinet view for Hermes-backed local operators.
+        </p>
+      </section>
+
+      <section class="scoreboard" aria-label="System summary">
+        <article class="score-tile">
+          <span class="score-label">Hermes</span>
+          <strong id="score-hermes">-</strong>
+        </article>
+        <article class="score-tile">
+          <span class="score-label">Gateway</span>
+          <strong id="score-gateway">-</strong>
+        </article>
+        <article class="score-tile">
+          <span class="score-label">Cron Jobs</span>
+          <strong id="score-cron">-</strong>
+        </article>
+        <article class="score-tile">
+          <span class="score-label">Git</span>
+          <strong id="score-git">-</strong>
+        </article>
+      </section>
+
+      <section class="meta-strip">
+        <p id="data-source">Loading live cabinet state...</p>
+        <p id="generated-at">Waiting for snapshot...</p>
+      </section>
+
+      <section>
+        <div id="agent-grid" class="agent-grid" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <template id="agent-template">
+      <article class="cabinet">
+        <div class="cabinet-top">
+          <p class="cabinet-role"></p>
+          <span class="cabinet-status"></span>
+        </div>
+        <h2 class="cabinet-label"></h2>
+        <p class="cabinet-tagline"></p>
+        <dl class="cabinet-stats">
+          <div>
+            <dt>Cabinet</dt>
+            <dd class="cabinet-name"></dd>
+          </div>
+          <div>
+            <dt>Signal</dt>
+            <dd class="cabinet-signal"></dd>
+          </div>
+        </dl>
+      </article>
+    </template>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
