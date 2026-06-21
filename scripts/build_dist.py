@@ -10,6 +10,7 @@ DIST = ROOT / "dist"
 APP = ROOT / "app"
 DATA = ROOT / "data" / "latest.json"
 SUMMON = ROOT / "data" / "summon.json"
+CNAME = "arcade.adrianlumley.co"
 
 SAFE_AGENT_FIELDS = {
     "id", "label", "role", "tagline", "cabinet", "accent", "order", "status", "signal"
@@ -148,12 +149,13 @@ def main() -> int:
 <link rel=\"canonical\" href=\"./app/\">
 <a href=\"./app/\">Open Agent Arcade</a>
 """, encoding="utf-8")
+    (DIST / "CNAME").write_text(f"{CNAME}\n", encoding="utf-8")
 
     print(f"Built {DIST}")
     included = "Included: app/, data/latest.json"
     if SUMMON.exists():
         included += ", data/summon.json"
-    included += ", index.html"
+    included += ", index.html, CNAME"
     print(included)
     return 0
 

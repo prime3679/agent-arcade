@@ -1,7 +1,9 @@
 __pycache__/
 *.pyc
 .DS_Store
+dist/
 data/latest.json
+data/summon.json
 data/runs/*.json
 !data/runs/.gitkeep
 !data/sample.json

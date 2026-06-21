@@ -30,6 +30,24 @@ Then open:
 http://localhost:8000/app/
 ```
 
+Refresh the snapshot set, rebuild the public-safe `dist/` bundle, validate the leak check, and deploy:
+
+```bash
+python3 scripts/refresh_deploy.py
+```
+
+Limit the summon step to specific personas:
+
+```bash
+python3 scripts/refresh_deploy.py scout bard
+```
+
+Verify the full local refresh/build/validation flow without committing or pushing:
+
+```bash
+python3 scripts/refresh_deploy.py --dry-run
+```
+
 If you open `app/index.html` directly via `file://`, the dashboard will fall back to embedded sample data instead of failing.
 
 ## Notes
@@ -38,4 +56,5 @@ If you open `app/index.html` directly via `file://`, the dashboard will fall bac
 - No external services are called.
 - No cron jobs are created or modified.
 - No Hermes configuration is changed.
-- Generated snapshots under `data/` are local-only runtime artifacts and should not be committed, aside from an optional small sample file if you choose to add one later.
+- `scripts/refresh_deploy.py` runs `collect_state.py`, `summon.py`, `build_dist.py`, enforces `dist/CNAME` as `arcade.adrianlumley.co`, validates a dist leak check, publishes `dist/` to `gh-pages`, pushes `main` changes if present, and prints the public URL.
+- Generated snapshots under `data/` and the built `dist/` directory are local-only runtime artifacts and should not be committed, aside from an optional small sample file if you choose to add one later.

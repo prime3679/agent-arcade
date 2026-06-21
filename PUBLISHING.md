@@ -19,12 +19,32 @@ Do not publish:
 
 ## Recommended deploy path
 
-1. Create a sanitized build directory, e.g. `dist/`.
-2. Copy app files into `dist/`.
-3. Generate `dist/data/latest.json` from the local snapshot with private fields removed or renamed.
-4. Deploy `dist/` to Cloudflare Pages.
-5. Point `arcade.adrian` at the Pages project.
-6. Add access control if the surface becomes more than public-safe status art.
+One-command path:
+
+```bash
+python3 scripts/refresh_deploy.py
+```
+
+What it does:
+- runs `scripts/collect_state.py`
+- runs `scripts/summon.py` with all personas by default, or only the personas passed on the command line
+- runs `scripts/build_dist.py`
+- ensures `dist/CNAME` contains `arcade.adrianlumley.co`
+- validates the built `dist/` tree for common leaks before publish
+- commits and pushes `main` changes if there are any non-generated repo changes
+- publishes `dist/` to the `gh-pages` branch
+- prints the public URL: `https://arcade.adrianlumley.co/`
+
+Useful variants:
+
+```bash
+python3 scripts/refresh_deploy.py scout bard
+python3 scripts/refresh_deploy.py --dry-run
+python3 scripts/refresh_deploy.py --skip-main-push
+python3 scripts/refresh_deploy.py --skip-gh-pages
+```
+
+`--dry-run` is the local verification path: it refreshes state, rebuilds `dist/`, enforces the CNAME, and runs the leak check without committing or pushing.
 
 ## Domain note
 
