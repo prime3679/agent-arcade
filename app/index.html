@@ -7,64 +7,100 @@
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
-    <div class="backdrop"></div>
-    <main class="shell">
-      <section class="hero">
-        <p class="eyebrow">Local Static Dashboard</p>
-        <h1 id="arcade-title">Agent Arcade</h1>
-        <p id="arcade-subtitle" class="hero-copy">
-          Cabinet view for Hermes-backed local operators.
-        </p>
-      </section>
+    <div class="grain" aria-hidden="true"></div>
 
-      <section class="scoreboard" aria-label="System summary">
-        <article class="score-tile">
-          <span class="score-label">Hermes</span>
-          <strong id="score-hermes">-</strong>
-        </article>
-        <article class="score-tile">
-          <span class="score-label">Gateway</span>
-          <strong id="score-gateway">-</strong>
-        </article>
-        <article class="score-tile">
-          <span class="score-label">Cron Jobs</span>
-          <strong id="score-cron">-</strong>
-        </article>
-        <article class="score-tile">
-          <span class="score-label">Git</span>
-          <strong id="score-git">-</strong>
-        </article>
-      </section>
-
-      <section class="meta-strip">
-        <p id="data-source">Loading live cabinet state...</p>
-        <p id="generated-at">Waiting for snapshot...</p>
-      </section>
-
-      <section>
-        <div id="agent-grid" class="agent-grid" aria-live="polite"></div>
-      </section>
-    </main>
-
-    <template id="agent-template">
-      <article class="cabinet">
-        <div class="cabinet-top">
-          <p class="cabinet-role"></p>
-          <span class="cabinet-status"></span>
+    <main class="console">
+      <header class="masthead">
+        <div class="masthead-id">
+          <p class="source" id="source-badge">
+            <span class="source-dot" aria-hidden="true"></span>
+            <span id="source-text">Connecting…</span>
+          </p>
+          <h1 id="arcade-title">Agent Arcade</h1>
+          <p class="subtitle" id="arcade-subtitle">
+            Cabinet view for Hermes-backed local operators.
+          </p>
         </div>
-        <h2 class="cabinet-label"></h2>
-        <p class="cabinet-tagline"></p>
-        <dl class="cabinet-stats">
+
+        <dl class="masthead-meta">
           <div>
-            <dt>Cabinet</dt>
-            <dd class="cabinet-name"></dd>
+            <dt>Snapshot</dt>
+            <dd id="generated-at">—</dd>
           </div>
           <div>
-            <dt>Signal</dt>
-            <dd class="cabinet-signal"></dd>
+            <dt>Location</dt>
+            <dd id="location">local</dd>
+          </div>
+          <div>
+            <dt>Branch</dt>
+            <dd id="branch">—</dd>
           </div>
         </dl>
-      </article>
+      </header>
+
+      <section class="vitals" aria-label="System vitals">
+        <article class="vital" id="vital-hermes">
+          <p class="vital-label">Hermes</p>
+          <p class="vital-value"><span class="tick" aria-hidden="true"></span><span class="vital-num">—</span></p>
+          <p class="vital-sub">—</p>
+        </article>
+        <article class="vital" id="vital-gateway">
+          <p class="vital-label">Gateway</p>
+          <p class="vital-value"><span class="tick" aria-hidden="true"></span><span class="vital-num">—</span></p>
+          <p class="vital-sub">—</p>
+        </article>
+        <article class="vital" id="vital-cron">
+          <p class="vital-label">Scheduler</p>
+          <p class="vital-value"><span class="tick" aria-hidden="true"></span><span class="vital-num">—</span></p>
+          <p class="vital-sub">—</p>
+        </article>
+        <article class="vital" id="vital-git">
+          <p class="vital-label">Worktree</p>
+          <p class="vital-value"><span class="tick" aria-hidden="true"></span><span class="vital-num">—</span></p>
+          <p class="vital-sub">—</p>
+        </article>
+      </section>
+
+      <section class="roster" aria-label="Agent fleet">
+        <div class="roster-head">
+          <h2>Fleet</h2>
+          <p class="roster-summary" id="roster-summary">—</p>
+        </div>
+
+        <div class="roster-columns" aria-hidden="true">
+          <span>State</span>
+          <span>Agent</span>
+          <span>Role</span>
+          <span>Signal</span>
+          <span class="col-index">#</span>
+        </div>
+
+        <ol class="fleet" id="fleet" aria-live="polite"></ol>
+      </section>
+
+      <footer class="console-foot">
+        <span>Agent Arcade · local-first, read-only</span>
+        <span id="foot-version">—</span>
+      </footer>
+    </main>
+
+    <template id="agent-row">
+      <li class="unit">
+        <span class="unit-state">
+          <span class="unit-dot" aria-hidden="true"></span>
+          <span class="unit-status sr-only"></span>
+        </span>
+        <span class="unit-id">
+          <span class="unit-mono" aria-hidden="true"></span>
+          <span class="unit-text">
+            <span class="unit-name"></span>
+            <span class="unit-cabinet"></span>
+          </span>
+        </span>
+        <span class="unit-role"></span>
+        <span class="unit-signal"></span>
+        <span class="unit-index col-index"></span>
+      </li>
     </template>
 
     <script src="./app.js"></script>
