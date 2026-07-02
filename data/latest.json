@@ -1,0 +1,226 @@
+{
+  "generated_at": "2026-07-02T08:00:01-04:00",
+  "arcade": {
+    "title": "Agent Arcade",
+    "subtitle": "Local-first dashboard for Hermes operators",
+    "location": "local",
+    "agent_count": 8
+  },
+  "hermes": {
+    "version": {
+      "ok": true,
+      "version": "0.18.0",
+      "build": "2026.7.1",
+      "upstream": "88d1d620"
+    },
+    "gateway": {
+      "ok": true,
+      "running": false
+    },
+    "cron": {
+      "ok": true,
+      "running": true,
+      "active_jobs": 12,
+      "next_run": "2026-07-02T09:00:00-04:00"
+    },
+    "cron_list": {
+      "ok": true,
+      "count": 12,
+      "entries": [
+        {
+          "id": "routine-01",
+          "state": "active",
+          "name": "Routine 01",
+          "schedule": "0 8 * * 1-5",
+          "next_run": "2026-07-03T08:00:00-04:00",
+          "last_run": "ok"
+        },
+        {
+          "id": "routine-02",
+          "state": "active",
+          "name": "Routine 02",
+          "schedule": "0 19 * * 0",
+          "next_run": "2026-07-05T19:00:00-04:00",
+          "last_run": "ok"
+        },
+        {
+          "id": "routine-03",
+          "state": "active",
+          "name": "Routine 03",
+          "schedule": "0 */6 * * *",
+          "next_run": "2026-07-02T12:00:00-04:00",
+          "last_run": "ok"
+        },
+        {
+          "id": "routine-04",
+          "state": "active",
+          "name": "Routine 04",
+          "schedule": "30 8 * * 5",
+          "next_run": "2026-07-03T08:30:00-04:00",
+          "last_run": "ok"
+        },
+        {
+          "id": "routine-05",
+          "state": "active",
+          "name": "Routine 05",
+          "schedule": "0 19 * * 0",
+          "next_run": "2026-07-05T19:00:00-04:00",
+          "last_run": "ok"
+        },
+        {
+          "id": "routine-06",
+          "state": "active",
+          "name": "Routine 06",
+          "schedule": "20 21 * * *",
+          "next_run": "2026-07-02T21:20:00-04:00",
+          "last_run": "ok"
+        },
+        {
+          "id": "routine-07",
+          "state": "active",
+          "name": "Routine 07",
+          "schedule": "0 8-18 * * 1-5",
+          "next_run": "2026-07-02T09:00:00-04:00",
+          "last_run": "ok"
+        },
+        {
+          "id": "routine-08",
+          "state": "active",
+          "name": "Routine 08",
+          "schedule": "10 */6 * * *",
+          "next_run": "2026-07-02T12:10:00-04:00",
+          "last_run": "ok"
+        },
+        {
+          "id": "routine-09",
+          "state": "active",
+          "name": "Routine 09",
+          "schedule": "30 21 * * *",
+          "next_run": "2026-07-02T21:30:00-04:00",
+          "last_run": "ok"
+        },
+        {
+          "id": "routine-10",
+          "state": "active",
+          "name": "Routine 10",
+          "schedule": "0 9 * * 1",
+          "next_run": "2026-07-06T09:00:00-04:00",
+          "last_run": "ok"
+        },
+        {
+          "id": "routine-11",
+          "state": "active",
+          "name": "Routine 11",
+          "schedule": "0 8 * * *",
+          "next_run": "2026-07-03T08:00:00-04:00",
+          "last_run": "ok"
+        },
+        {
+          "id": "routine-12",
+          "state": "active",
+          "name": "Routine 12",
+          "schedule": "once at 2026-07-03 09:00",
+          "next_run": "2026-07-03T09:00:00-04:00",
+          "last_run": "unknown"
+        }
+      ]
+    }
+  },
+  "repo": {
+    "clean": true,
+    "changed_files": 0,
+    "staged_files": 0,
+    "unstaged_files": 0,
+    "untracked_files": 0
+  },
+  "agents": [
+    {
+      "id": "rogue",
+      "label": "Rogue",
+      "role": "Product control plane",
+      "tagline": "Keeps the cabinet lineup coordinated and safe.",
+      "cabinet": "command-deck",
+      "accent": "ember",
+      "order": 1,
+      "status": "ready",
+      "signal": "All systems stable."
+    },
+    {
+      "id": "codex",
+      "label": "Codex",
+      "role": "Primary builder",
+      "tagline": "Ships features, fixes, and pragmatic implementation details.",
+      "cabinet": "builder-bay",
+      "accent": "laser",
+      "order": 2,
+      "status": "ready",
+      "signal": "All systems stable."
+    },
+    {
+      "id": "claude-code",
+      "label": "Claude Code",
+      "role": "Deep reviewer",
+      "tagline": "Audits risky changes and pressure-tests tricky logic.",
+      "cabinet": "review-rail",
+      "accent": "mint",
+      "order": 3,
+      "status": "ready",
+      "signal": "All systems stable."
+    },
+    {
+      "id": "scout",
+      "label": "Scout",
+      "role": "Repo ranger",
+      "tagline": "Tracks git drift, branch shape, and workspace hygiene.",
+      "cabinet": "branch-radar",
+      "accent": "cobalt",
+      "order": 4,
+      "status": "ready",
+      "signal": "All systems stable."
+    },
+    {
+      "id": "sentinel",
+      "label": "Sentinel",
+      "role": "Gateway watcher",
+      "tagline": "Watches the messaging gateway heartbeat and service health.",
+      "cabinet": "pulse-tower",
+      "accent": "gold",
+      "order": 5,
+      "status": "warning",
+      "signal": "Gateway is offline."
+    },
+    {
+      "id": "ticker",
+      "label": "Ticker",
+      "role": "Scheduler monitor",
+      "tagline": "Keeps an eye on cron activity, next runs, and load.",
+      "cabinet": "clockwork",
+      "accent": "coral",
+      "order": 6,
+      "status": "ready",
+      "signal": "All systems stable."
+    },
+    {
+      "id": "patchbay",
+      "label": "Patchbay",
+      "role": "Local automation",
+      "tagline": "Runs small maintenance loops without touching config.",
+      "cabinet": "wire-mesh",
+      "accent": "ice",
+      "order": 7,
+      "status": "active",
+      "signal": "12 cron job definitions detected."
+    },
+    {
+      "id": "archivist",
+      "label": "Archivist",
+      "role": "Snapshot keeper",
+      "tagline": "Preserves each state capture as a replayable run artifact.",
+      "cabinet": "memory-vault",
+      "accent": "plum",
+      "order": 8,
+      "status": "active",
+      "signal": "Writing replayable snapshots to data/runs/."
+    }
+  ]
+}
