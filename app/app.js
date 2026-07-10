@@ -1,9 +1,8 @@
-// Agent Arcade — AA-8 Console renderer.
-// Reads the generated snapshot (data/latest.json) and paints the hardware
-// console: an inset LCD readout, eight mixer channel strips (one per agent),
-// and a patch bay of scheduled routines. Falls back to embedded sample data
-// under file:// where fetch is blocked. Consumes the raw snapshot shape
-// directly, so it stays in lockstep with collect_state.py.
+// Agent Arcade cabinet renderer.
+// Reads the generated snapshot (data/latest.json) and paints a local-only
+// fleet instrument. Falls back to embedded sample data under file:// where
+// fetch is blocked. Consumes the raw snapshot shape directly, so it stays in
+// lockstep with collect_state.py.
 
 const sampleData = {
   generated_at: "2026-06-21T15:01:44-04:00",
@@ -86,25 +85,17 @@ const sampleSummon = {
   ],
 };
 
-// Bright, primary-leaning identity colours for the channel knobs.
-const ACCENTS = {
-  ember: "#ff5a1f",
-  laser: "#2f6dff",
-  mint: "#1faf5a",
-  cobalt: "#7c5cff",
-  gold: "#ffc21f",
-  coral: "#ff8a3f",
-  ice: "#1fc6c6",
-  plum: "#c54ad6",
-};
-
 const esc = (s) =>
   String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
-// Two visual channel states: steady green (ready) vs. lit amber (everything else).
-const stateOf = (status) => (status === "ready" ? "ok" : "busy");
-const accentOf = (agent) => ACCENTS[agent.accent] || (agent.accent && agent.accent.startsWith("#") ? agent.accent : "#15140f");
+const stateOf = (status) => {
+  if (status === "ready") return "ok";
+  if (status === "warning") return "warn";
+  return "busy";
+};
 const hhmm = (iso) => (iso && iso.includes("T") ? iso.split("T")[1].slice(0, 5) : "—");
+const shortDateTime = (iso) => (iso && iso.includes("T") ? iso.slice(5, 16).replace("T", " ") : "—");
+const sentence = (text) => (text ? String(text).replace(/\.$/, "") : "");
 
 async function loadData() {
   try {
@@ -130,7 +121,8 @@ function renderChrome(payload) {
   const arcade = payload.arcade || {};
 
   document.getElementById("arcade-title").textContent = arcade.title || "Agent Arcade";
-  document.getElementById("model").textContent = `AA-8 · ${(arcade.location || "local").toUpperCase()}`;
+  document.getElementById("subtitle").textContent = arcade.subtitle || "Local-first dashboard for Hermes operators";
+  document.getElementById("model").textContent = `AA-8 ${(arcade.location || "local").toLowerCase()} cabinet`;
 
   const badge = document.getElementById("source-badge");
   badge.dataset.live = String(live);
@@ -138,11 +130,11 @@ function renderChrome(payload) {
 
   const stamp = (payload.generated_at || "").slice(0, 16).replace("T", " ");
   document.getElementById("stamp").textContent = live
-    ? `live snapshot · ${stamp}`
-    : "sample data · file://";
+    ? `live snapshot - ${stamp} - read-only, no sends, no config writes`
+    : "sample data - file:// fallback - read-only";
 }
 
-function renderLCD(payload) {
+function renderReadout(payload) {
   const hermes = payload.hermes || {};
   const repo = payload.repo || {};
   const version = hermes.version || {};
@@ -151,69 +143,66 @@ function renderLCD(payload) {
   const gatewayUp = !!hermes.gateway?.running;
   const clean = !!repo.clean;
 
-  const segs = [
-    ["VER", `v${version.version || "?"}`, false],
-    ["GATE", gatewayUp ? "ON" : "OFF", !gatewayUp],
-    ["CRON", `${jobs} JOBS`, !cron.running],
-    ["GIT", clean ? "CLEAN" : `${repo.changed_files ?? 0}Δ`, !clean],
-    ["NEXT", cron.running ? hhmm(cron.next_run) : "—", !cron.running],
+  const facts = [
+    ["Hermes", `v${version.version || "?"}`, version.build ? `build ${version.build}` : "build unknown", version.ok === false ? "warn" : "ok"],
+    ["Gateway", gatewayUp ? "running" : "offline", hermes.gateway?.pid ? `pid ${hermes.gateway.pid}` : "no pid", gatewayUp ? "ok" : "warn"],
+    ["Cron", cron.running ? "running" : "paused", `${jobs} jobs`, cron.running ? "ok" : "warn"],
+    ["Repository", clean ? "clean" : `${repo.changed_files ?? 0} changed`, repo.branch ? `${repo.branch} @ ${repo.head || "—"}` : "branch unavailable", clean ? "ok" : "busy"],
+    ["Next Run", cron.running ? hhmm(cron.next_run) : "—", shortDateTime(cron.next_run), cron.running ? "ok" : "warn"],
   ];
 
-  const scroll = `build ${version.build || "?"} · ${repo.branch || "—"} @ ${repo.head || "—"}`;
-  document.getElementById("lcd").innerHTML =
-    segs
-      .map(([k, v, warn]) => `<div class="seg"><span class="k">${k}</span><span class="v${warn ? " warn" : ""}">${esc(v)}</span></div>`)
-      .join("") +
-    `<span class="spacer"></span><span class="scroll">${esc(scroll)}</span>`;
+  document.getElementById("readout").innerHTML = facts
+    .map(
+      ([label, value, detail, state]) => `
+      <div class="readout-fact" data-state="${esc(state)}">
+        <span class="fact-label">${esc(label)}</span>
+        <strong>${esc(value)}</strong>
+        <span class="fact-detail">${esc(detail)}</span>
+      </div>`
+    )
+    .join("");
 }
 
-function renderMixer(payload) {
+function renderFleet(payload) {
   const agents = payload.agents || [];
-  document.getElementById("mixer-label").textContent = `Fleet · ${agents.length} channels`;
+  document.getElementById("fleet-count").textContent = `${agents.length} agents`;
 
-  document.getElementById("mixer").innerHTML = agents
+  document.getElementById("fleet").innerHTML = agents
     .map((a, i) => {
       const s = stateOf(a.status);
-      const lit = s === "ok" ? 5 : 3;
-      const meter = Array.from({ length: 5 }, (_, m) => `<i class="${m < lit ? "on" : ""}"></i>`).join("");
-      const capTop = s === "ok" ? 10 : 42; // fader cap position (%)
-      const rot = `${-58 + i * 16}deg`; // varied knob angle for visual rhythm
       const num = String(a.order ?? i + 1).padStart(2, "0");
       return `
-      <div class="ch" data-s="${s}" style="--ac:${esc(accentOf(a))}">
-        <div class="ch-top">
-          <span class="ch-num">${esc(num)}</span>
-          <span class="knob" style="--rot:${rot}"></span>
+      <article class="fleet-row" data-state="${s}" data-accent="${esc(a.accent || "none")}">
+        <span class="row-index">${esc(num)}</span>
+        <div class="agent-main">
+          <h3>${esc(a.label || a.id || "—")}</h3>
+          <p>${esc(a.role || "")}</p>
         </div>
-        <div>
-          <div class="ch-name">${esc(a.label || a.id || "—")}</div>
-          <div class="ch-role">${esc(a.role || "")}</div>
+        <div class="agent-signal">
+          <span>${esc(sentence(a.signal) || sentence(a.tagline) || "No signal")}</span>
         </div>
-        <div class="ch-bottom">
-          <div class="meter">${meter}</div>
-          <div class="fader"><div class="track"></div><div class="cap" style="top:${capTop}%"></div></div>
-          <div class="ch-meta">
-            <span class="ch-state">${esc(a.status || "ready")}</span>
-            <span class="ch-cab">${esc(a.cabinet || "")}</span>
-          </div>
+        <div class="agent-meta">
+          <span class="state-word">${esc(a.status || "ready")}</span>
+          <span>${esc(a.cabinet || "cabinet")}</span>
         </div>
-      </div>`;
+      </article>`;
     })
     .join("");
 }
 
-function renderPatch(payload) {
+function renderRoutines(payload) {
   const entries = payload.hermes?.cron_list?.entries || [];
-  document.getElementById("patch").innerHTML = entries
+  document.getElementById("routine-count").textContent = `${entries.length} routines`;
+  document.getElementById("routines").innerHTML = entries
     .map((c) => {
       const on = (c.state || "active") === "active";
-      const next = (c.next_run || "").slice(5, 16).replace("T", " ") || "—";
+      const next = shortDateTime(c.next_run);
       return `
-      <div class="jack">
-        <span class="toggle${on ? "" : " off"}" role="img" aria-label="${on ? "enabled" : "disabled"}"></span>
-        <span class="jack-name">${esc(c.name)}</span>
-        <span class="jack-cron">${esc(c.schedule || "")}</span>
-        <span class="jack-next">${esc(next)}</span>
+      <div class="routine-row" data-state="${on ? "ok" : "warn"}">
+        <span class="routine-state">${esc(c.state || "active")}</span>
+        <span class="routine-name">${esc(c.name)}</span>
+        <span class="routine-schedule">${esc(c.schedule || "")}</span>
+        <span class="routine-next">${esc(next)}</span>
       </div>`;
     })
     .join("");
@@ -221,20 +210,30 @@ function renderPatch(payload) {
 
 function renderSummon(payload) {
   const summon = payload.summon;
-  const label = document.getElementById("summon-label");
-  const bay = document.getElementById("summon");
+  const panel = document.getElementById("story-panel");
+  const count = document.getElementById("story-count");
+  const story = document.getElementById("story");
   const cartridges = summon?.cartridges || [];
 
   if (!cartridges.length) {
-    label.classList.add("is-hidden");
-    bay.classList.add("is-hidden");
-    bay.innerHTML = "";
+    panel.classList.add("is-hidden");
+    story.innerHTML = "";
     return;
   }
 
-  label.classList.remove("is-hidden");
-  bay.classList.remove("is-hidden");
-  bay.innerHTML = cartridges
+  panel.classList.remove("is-hidden");
+  count.textContent = `${cartridges.length} cartridges`;
+
+  const telegram = summon.telegram
+    ? `<p class="story-telegram">${esc(summon.telegram)}</p>`
+    : "";
+  const source = summon.source_snapshot
+    ? `<p class="story-source">Snapshot ${esc(summon.source_snapshot)}</p>`
+    : "";
+
+  story.innerHTML =
+    `<div class="story-lede">${source}${telegram}</div>` +
+    cartridges
     .map((cartridge, index) => {
       const num = String(index + 1).padStart(2, "0");
       return `
@@ -254,9 +253,9 @@ function renderSummon(payload) {
 
 function renderDashboard(payload) {
   renderChrome(payload);
-  renderLCD(payload);
-  renderMixer(payload);
-  renderPatch(payload);
+  renderReadout(payload);
+  renderFleet(payload);
+  renderRoutines(payload);
   renderSummon(payload);
 }
 
