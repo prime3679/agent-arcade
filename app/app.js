@@ -93,9 +93,14 @@ const stateOf = (status) => {
   if (status === "warning") return "warn";
   return "busy";
 };
-const hhmm = (iso) => (iso && iso.includes("T") ? iso.split("T")[1].slice(0, 5) : "—");
-const shortDateTime = (iso) => (iso && iso.includes("T") ? iso.slice(5, 16).replace("T", " ") : "—");
+const hhmm = (iso) => (iso && iso.includes("T") ? iso.split("T")[1].slice(0, 5) : "-");
+const shortDateTime = (iso) => (iso && iso.includes("T") ? iso.slice(5, 16).replace("T", " ") : "-");
 const sentence = (text) => (text ? String(text).replace(/\.$/, "") : "");
+const isRecurringSchedule = (schedule) => {
+  const value = String(schedule || "");
+  if (value.toLowerCase().includes("once")) return false;
+  return value.includes("*") || value.includes("/") || value.includes(",") || value.includes("-");
+};
 
 async function loadData() {
   try {
@@ -148,8 +153,8 @@ function renderReadout(payload) {
     ["Hermes", `v${version.version || "?"}`, version.build ? `build ${version.build}` : "build unknown", version.ok === false ? "warn" : "ok"],
     ["Gateway", gatewayUp ? "running" : "offline", hermes.gateway?.pid ? `pid ${hermes.gateway.pid}` : "no pid", gatewayUp ? "ok" : "warn"],
     ["Cron", cron.running ? "running" : "paused", `${jobs} jobs`, cron.running ? "ok" : "warn"],
-    ["Repository", clean ? "clean" : `${repo.changed_files ?? 0} changed`, repo.branch ? `${repo.branch} @ ${repo.head || "—"}` : "branch unavailable", clean ? "ok" : "busy"],
-    ["Next Run", cron.running ? hhmm(cron.next_run) : "—", shortDateTime(cron.next_run), cron.running ? "ok" : "warn"],
+    ["Repository", clean ? "clean" : `${repo.changed_files ?? 0} changed`, repo.branch ? `${repo.branch} @ ${repo.head || "-"}` : "branch unavailable", clean ? "ok" : "busy"],
+    ["Next Run", cron.running ? hhmm(cron.next_run) : "-", shortDateTime(cron.next_run), cron.running ? "ok" : "warn"],
   ];
 
   document.getElementById("readout").innerHTML = facts
@@ -157,7 +162,7 @@ function renderReadout(payload) {
       ([label, value, detail, state]) => `
       <div class="readout-fact" data-state="${esc(state)}">
         <span class="fact-label">${esc(label)}</span>
-        <strong>${esc(value)}</strong>
+        <strong class="fact-value">${esc(value)}</strong>
         <span class="fact-detail">${esc(detail)}</span>
       </div>`
     )
@@ -167,22 +172,29 @@ function renderReadout(payload) {
 function renderFleet(payload) {
   const agents = payload.agents || [];
   document.getElementById("fleet-count").textContent = `${agents.length} agents`;
+  const warningIndex = agents.findIndex((a) => stateOf(a.status) === "warn");
+  const priorityIndex = warningIndex >= 0
+    ? warningIndex
+    : agents.findIndex((a) => stateOf(a.status) !== "ok");
 
   document.getElementById("fleet").innerHTML = agents
     .map((a, i) => {
       const s = stateOf(a.status);
       const num = String(a.order ?? i + 1).padStart(2, "0");
+      const priority = i === priorityIndex ? " is-priority" : "";
       return `
-      <article class="fleet-row" data-state="${s}" data-accent="${esc(a.accent || "none")}">
-        <span class="row-index">${esc(num)}</span>
-        <div class="agent-main">
-          <h3>${esc(a.label || a.id || "—")}</h3>
-          <p>${esc(a.role || "")}</p>
+      <article class="agent-unit${priority}" data-state="${s}">
+        <div class="unit-name-row">
+          <span class="row-index">${esc(num)}</span>
+          <div class="agent-main">
+            <h3>${esc(a.label || a.id || "-")}</h3>
+            <p>${esc(a.role || "")}</p>
+          </div>
         </div>
-        <div class="agent-signal">
+        <div class="signal-well">
           <span>${esc(sentence(a.signal) || sentence(a.tagline) || "No signal")}</span>
         </div>
-        <div class="agent-meta">
+        <div class="unit-base">
           <span class="state-word">${esc(a.status || "ready")}</span>
           <span>${esc(a.cabinet || "cabinet")}</span>
         </div>
@@ -194,19 +206,33 @@ function renderFleet(payload) {
 function renderRoutines(payload) {
   const entries = payload.hermes?.cron_list?.entries || [];
   document.getElementById("routine-count").textContent = `${entries.length} routines`;
-  document.getElementById("routines").innerHTML = entries
-    .map((c) => {
-      const on = (c.state || "active") === "active";
-      const next = shortDateTime(c.next_run);
-      return `
-      <div class="routine-row" data-state="${on ? "ok" : "warn"}">
-        <span class="routine-state">${esc(c.state || "active")}</span>
-        <span class="routine-name">${esc(c.name)}</span>
-        <span class="routine-schedule">${esc(c.schedule || "")}</span>
-        <span class="routine-next">${esc(next)}</span>
-      </div>`;
-    })
-    .join("");
+  const recurring = entries.filter((entry) => isRecurringSchedule(entry.schedule));
+  const oneTime = entries.filter((entry) => !isRecurringSchedule(entry.schedule));
+
+  const renderGroup = (label, items) => `
+    <section class="routine-group" aria-label="${esc(label)}">
+      <h3>${esc(label)}</h3>
+      ${
+        items.length
+          ? items
+              .map((c) => {
+                const on = (c.state || "active") === "active";
+                const next = shortDateTime(c.next_run);
+                return `
+                <div class="routine-row" data-state="${on ? "ok" : "warn"}">
+                  <span class="routine-name">${esc(c.name)}</span>
+                  <span class="routine-state">${esc(c.state || "active")}</span>
+                  <span class="routine-schedule">${esc(c.schedule || "")}</span>
+                  <span class="routine-next">${esc(next)}</span>
+                </div>`;
+              })
+              .join("")
+          : `<p class="routine-empty">None configured</p>`
+      }
+    </section>`;
+
+  document.getElementById("routines").innerHTML =
+    renderGroup("Recurring", recurring) + renderGroup("One-time", oneTime);
 }
 
 function renderSummon(payload) {

@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Render a compact, Telegram-friendly status card from data/latest.json.
-
-A glanceable AA-8 face: the plastic plate, a phosphor LCD vitals strip, and a
-tight two-column channel list. Smaller and denser than the full preview so it
-reads well inline in a chat. Same hardware language as the web console.
-"""
+"""Render a compact Agent Arcade status card from data/latest.json."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -21,28 +16,29 @@ PAD = 30
 
 
 def render() -> Path:
-    p = t.load_data()
+    payload = t.load_data()
     summon = t.load_summon() or {}
-    agents = p.get("agents", [])
-    hermes = p.get("hermes", {})
-    repo = p.get("repo", {})
+    agents = payload.get("agents", [])
+    hermes = payload.get("hermes", {})
+    repo = payload.get("repo", {})
     cartridges = summon.get("cartridges", [])
 
     x0 = MARGIN + PAD
     x1 = W - MARGIN - PAD
     inner = x1 - x0
 
-    header_h, lcd_h, label_h = 58, 66, 24
-    chip_w = (inner - 14) / 2
-    chip_h, chip_gap = 64, 12
+    header_h, strip_h, label_h = 54, 62, 24
+    gap = 12
+    chip_w = (inner - gap) / 2
+    chip_h = 76
     rows = (len(agents[:8]) + 1) // 2
-    fleet_h = rows * chip_h + (rows - 1) * chip_gap
-    summon_h = 70 if cartridges else 0
-    foot_h = 30
+    fleet_h = rows * chip_h + max(0, rows - 1) * gap
+    summon_h = 64 if cartridges else 0
+    foot_h = 28
 
     header_y = MARGIN + PAD
-    lcd_y = header_y + header_h
-    fleet_label_y = lcd_y + lcd_h + 18
+    strip_y = header_y + header_h
+    fleet_label_y = strip_y + strip_h + 18
     grid_y = fleet_label_y + label_h
     summon_label_y = grid_y + fleet_h + 18 if cartridges else None
     summon_y = summon_label_y + label_h if summon_label_y is not None else None
@@ -54,134 +50,114 @@ def render() -> Path:
     t.paper_backdrop(img)
     d = ImageDraw.Draw(img)
 
-    t.plate(d, (MARGIN, MARGIN, W - MARGIN, plate_bottom), radius=18)
-    for sx, sy in ((MARGIN + 14, MARGIN + 14), (W - MARGIN - 14, MARGIN + 14),
-                   (MARGIN + 14, plate_bottom - 14), (W - MARGIN - 14, plate_bottom - 14)):
-        t.screw(d, sx, sy, r=6)
+    t.plate(d, (MARGIN, MARGIN, W - MARGIN, plate_bottom), radius=14)
 
-    live = p.get("__source") != "fallback"
-
-    # ---- header ----
-    f_mark = t.font(28, "Heavy")
-    title = (p.get("arcade", {}).get("title", "Agent Arcade")).upper()
-    d.text((x0, header_y + 4), title, font=f_mark, fill=t.INK)
-    title_w = t.text_len(d, title, f_mark)
-
-    f_model = t.font(13, "Semibold", mono=True)
-    model = f"AA-8 · {(p.get('arcade', {}).get('location', 'local')).upper()}"
-    mw = t.text_len(d, model, f_model)
-    bx = x0 + title_w + 16
-    d.rounded_rectangle((bx, header_y + 8, bx + mw + 18, header_y + 32), radius=5, fill=t.INK)
-    d.text((bx + 9, header_y + 13), model, font=f_model, fill=t.PLATE)
-
-    f_rec = t.font(13, "Semibold", mono=True)
-    rec = "LIVE" if live else "SAMPLE"
-    rec_w = t.text_len(d, rec, f_rec) + len(rec) * 1.2
-    rec_x = x1 - rec_w
-    t.tracked(d, (rec_x, header_y + 6), rec, f_rec, t.INK2 if live else t.FAINT, tracking=1.2)
-    led_x = rec_x - 16
-    d.ellipse((led_x - 5, header_y + 7, led_x + 5, header_y + 17), fill=t.ORANGE if live else t.BUSY)
-    snap = t.fmt_snapshot(p.get("generated_at", ""))
-    f_snap = t.font(13, "Regular", mono=True)
-    d.text((x1 - t.text_len(d, snap, f_snap), header_y + 30), snap, font=f_snap, fill=t.FAINT)
-
-    # ---- LCD vitals strip ----
-    t.lcd_panel(d, (x0, lcd_y, x1, lcd_y + lcd_h))
+    live = payload.get("__source") != "fallback"
     version = hermes.get("version", {})
     cron = hermes.get("cron", {})
     jobs = cron.get("active_jobs", hermes.get("cron_list", {}).get("count", 0))
     gateway_up = bool(hermes.get("gateway", {}).get("running"))
     clean = bool(repo.get("clean"))
-    segs = [
-        ("VER", f"v{version.get('version', '?')}", False),
-        ("GATE", "ON" if gateway_up else "OFF", not gateway_up),
-        ("CRON", f"{jobs} JOBS", not cron.get("running")),
-        ("GIT", "CLEAN" if clean else f"{repo.get('changed_files', 0)}Δ", not clean),
-        ("NEXT", t.fmt_time(cron.get("next_run")) if cron.get("running") else "—", not cron.get("running")),
+
+    # ---- masthead ----
+    f_title = t.font(28, "Heavy")
+    f_badge = t.font(13, "Semibold")
+    f_time = t.font(13, "Regular", mono=True)
+    title = payload.get("arcade", {}).get("title", "Agent Arcade")
+    d.text((x0, header_y + 4), title, font=f_title, fill=t.INK)
+    d.text((x0, header_y + 36), "AA-8 local cabinet", font=f_badge, fill=t.ORANGE)
+
+    badge = "Snapshot" if live else "Sample"
+    stamp = t.fmt_snapshot(payload.get("generated_at", ""))
+    d.text((x1 - t.text_len(d, badge, f_badge), header_y + 8), badge, font=f_badge, fill=t.INK2)
+    d.text((x1 - t.text_len(d, stamp, f_time), header_y + 30), stamp, font=f_time, fill=t.FAINT)
+
+    # ---- compact power strip ----
+    t.plate(d, (x0, strip_y, x1, strip_y + strip_h), radius=8, recessed=True)
+    facts = [
+        ("HER", f"v{version.get('version', '?')}", "ok" if version.get("ok", True) is not False else "warn"),
+        ("GATE", "on" if gateway_up else "off", "ok" if gateway_up else "warn"),
+        ("CRON", f"{jobs}", "ok" if cron.get("running") else "warn"),
+        ("GIT", "clean" if clean else f"{repo.get('changed_files', 0)} changed", "ok" if clean else "busy"),
+        ("NEXT", t.fmt_time(cron.get("next_run")) if cron.get("running") else "-", "ok" if cron.get("running") else "warn"),
     ]
-    f_k = t.font(11, "Medium", mono=True)
-    f_v = t.font(19, "Semibold", mono=True)
-    seg = inner / len(segs)
-    for i, (key, val, warn) in enumerate(segs):
-        sx = x0 + 18 + i * seg
-        t.tracked(d, (sx, lcd_y + 16), key, f_k, t.LCD_DIM, tracking=1.3)
-        d.text((sx, lcd_y + 32), val, font=f_v, fill=t.BUSY if warn else t.LCD)
+    _mini_strip(d, facts, x0, strip_y, inner, strip_h)
 
-    # ---- fleet header + health ----
-    f_label = t.font(13, "Bold", mono=True)
-    t.tracked(d, (x0 + 2, fleet_label_y), f"FLEET · {len(agents)} CHANNELS", f_label, t.INK2, tracking=1.5)
-    counts = {"ok": 0, "busy": 0}
-    for a in agents:
-        counts[t.state_for(a.get("status", "ready"))] += 1
-    f_sub = t.font(13, "Regular", mono=True)
-    summary = f"{counts['ok']} ready · {counts['busy']} active"
-    d.text((x1 - t.text_len(d, summary, f_sub), fleet_label_y + 1), summary, font=f_sub, fill=t.FAINT)
-
-    # ---- two-column channel list ----
-    f_num = t.font(20, "Heavy", mono=True)
-    f_name = t.font(16, "Bold")
-    f_cab = t.font(12, "Regular", mono=True)
-    f_state = t.font(10, "Bold", mono=True)
-    for idx, a in enumerate(agents[:8]):
+    # ---- cabinet units ----
+    _label(d, x0, x1, fleet_label_y, "Cabinet lineup", f"{len(agents)} agents")
+    priority = next((i for i, a in enumerate(agents) if t.state_for(a.get("status", "ready")) != "ok"), -1)
+    for idx, agent in enumerate(agents[:8]):
         col, row = idx % 2, idx // 2
-        cx0 = x0 + col * (chip_w + 14)
-        cy0 = grid_y + row * (chip_h + chip_gap)
-        t.plate(d, (cx0, cy0, cx0 + chip_w, cy0 + chip_h), radius=10, recessed=True)
-
-        state = t.state_for(a.get("status", "ready"))
-        accent = t.accent_rgb(a.get("accent"))
-        mid = cy0 + chip_h / 2
-
-        d.text((cx0 + 16, mid - 13), str(a.get("order", idx + 1)).zfill(2), font=f_num, fill=t.INK)
-        t.knob(d, cx0 + 60, mid, 13, accent, -58 + idx * 16)
-        d.text((cx0 + 88, cy0 + 12), t.ellipsize(d, a.get("label", a.get("id", "—")), f_name, chx := chip_w - 88 - 96), font=f_name, fill=t.INK)
-        d.text((cx0 + 88, cy0 + 36), t.ellipsize(d, a.get("cabinet", ""), f_cab, chx), font=f_cab, fill=t.FAINT)
-
-        label = (a.get("status", "ready")).upper()
-        lw = t.text_len(d, label, f_state) + len(label)
-        if state == "ok":
-            bg, fg = t.mix(t.OK, t.PLATE, 0.22), (10, 94, 47)
-        else:
-            bg, fg = t.mix(t.BUSY, t.PLATE, 0.30), (138, 74, 0)
-        bxr = cx0 + chip_w - 14
-        d.rounded_rectangle((bxr - lw - 14, mid - 10, bxr, mid + 10), radius=4, fill=bg)
-        t.tracked(d, (bxr - lw - 7, mid - 6), label, f_state, fg, tracking=1.0)
+        cx0 = x0 + col * (chip_w + gap)
+        cy0 = grid_y + row * (chip_h + gap)
+        _mini_unit(d, agent, idx, (cx0, cy0, cx0 + chip_w, cy0 + chip_h), idx == priority)
 
     # ---- summon strip ----
     if cartridges:
-        t.tracked(d, (x0 + 2, summon_label_y), "CARTRIDGE BAY · SUMMON MODE", f_label, t.INK2, tracking=1.5)
-        summary = f"{len(cartridges)} loaded"
-        d.text((x1 - t.text_len(d, summary, f_sub), summon_label_y + 1), summary, font=f_sub, fill=t.FAINT)
-        t.plate(d, (x0, summon_y, x1, summon_y + summon_h), radius=10, recessed=True)
-
+        _label(d, x0, x1, summon_label_y, "Cartridge story", f"{len(cartridges)} loaded")
+        t.plate(d, (x0, summon_y, x1, summon_y + summon_h), radius=8, recessed=True)
         f_cart = t.font(14, "Bold")
-        f_body = t.font(12, "Regular", mono=True)
+        f_body = t.font(12, "Regular")
         card_gap = 10
         card_w = (inner - card_gap * (len(cartridges) - 1)) / max(1, len(cartridges))
-        accent_map = {
-            "orange": t.ORANGE,
-            "plum": t.ACCENTS["plum"],
-            "cobalt": t.ACCENTS["cobalt"],
-            "yellow": t.ACCENTS["gold"],
-        }
         for idx, cartridge in enumerate(cartridges):
             cx0 = x0 + idx * (card_w + card_gap)
-            accent = accent_map.get(cartridge.get("accent"), t.ORANGE)
-            d.rounded_rectangle((cx0, summon_y, cx0 + card_w, summon_y + summon_h), radius=9, fill=t.PLATE, outline=t.LINE, width=1)
-            d.rounded_rectangle((cx0, summon_y, cx0 + 8, summon_y + summon_h), radius=9, fill=accent)
-            d.text((cx0 + 18, summon_y + 12), cartridge.get("label", cartridge.get("persona", "Cartridge")), font=f_cart, fill=t.INK)
+            accent = t.accent_rgb(cartridge.get("accent"))
+            d.rectangle((cx0, summon_y, cx0 + card_w, summon_y + summon_h), fill=t.PLATE, outline=t.LINE)
+            d.rectangle((cx0, summon_y, cx0 + 5, summon_y + summon_h), fill=accent)
+            d.text((cx0 + 14, summon_y + 10), t.ellipsize(d, cartridge.get("label", cartridge.get("persona", "Cartridge")), f_cart, card_w - 28), font=f_cart, fill=t.INK)
             for line_index, line in enumerate(t.wrap_text(d, cartridge.get("headline", ""), f_body, card_w - 28, 2)):
-                d.text((cx0 + 18, summon_y + 34 + line_index * 14), line, font=f_body, fill=t.INK2)
+                d.text((cx0 + 14, summon_y + 31 + line_index * 14), line, font=f_body, fill=t.INK2)
 
     # ---- footer ----
     d.line((x0, foot_y, x1, foot_y), fill=t.LINE2, width=1)
-    f_foot = t.font(13, "Medium", mono=True)
-    t.tracked(d, (x0, foot_y + 12), "READ-ONLY · NO SENDS", f_foot, t.FAINT, tracking=0.8)
-    vtxt = f"hermes v{version.get('version', '?')}" + (f" · {version.get('build')}" if version.get("build") else "")
-    d.text((x1 - t.text_len(d, vtxt, f_foot), foot_y + 12), vtxt, font=f_foot, fill=t.FAINT)
+    f_foot = t.font(13, "Medium")
+    d.text((x0, foot_y + 10), "read-only · no sends · no config writes", font=f_foot, fill=t.FAINT)
+    build = f"hermes v{version.get('version', '?')}"
+    d.text((x1 - t.text_len(d, build, f_time), foot_y + 10), build, font=f_time, fill=t.FAINT)
 
     img.save(OUT)
     return OUT
+
+
+def _label(d, x0, x1, y, title, count) -> None:
+    f_title = t.font(15, "Bold")
+    f_count = t.font(13, "Medium")
+    d.text((x0, y), title, font=f_title, fill=t.INK)
+    d.text((x1 - t.text_len(d, count, f_count), y + 1), count, font=f_count, fill=t.INK2)
+
+
+def _mini_strip(d, facts, x0, y, inner, h) -> None:
+    f_key = t.font(10, "Bold")
+    f_val = t.font(17, "Bold")
+    seg = inner / len(facts)
+    for i, (key, val, state) in enumerate(facts):
+        sx = x0 + i * seg
+        if i:
+            d.line((sx, y + 9, sx, y + h - 9), fill=t.LINE2, width=1)
+        if state != "ok":
+            d.rectangle((sx + 1, y + 1, sx + seg - 1, y + h - 1), fill=t.mix(t.STATE_COLORS[state], t.PLATE2, 0.09))
+        d.text((sx + 12, y + 13), key, font=f_key, fill=t.INK2)
+        d.text((sx + 12, y + 31), t.ellipsize(d, val, f_val, seg - 24), font=f_val, fill=t.INK)
+
+
+def _mini_unit(d, agent, idx: int, box, priority: bool) -> None:
+    x0, y0, x1, y1 = box
+    state = t.state_for(agent.get("status", "ready"))
+    state_color = t.STATE_COLORS.get(state, t.BUSY)
+    fill = t.mix(state_color, t.PLATE, 0.06 if state != "ok" else 0.0)
+    d.rectangle(box, fill=fill, outline=t.LINE2, width=1)
+    d.rectangle((x0, y0, x1, y0 + 5), fill=state_color)
+
+    f_num = t.font(18, "Heavy", mono=True)
+    f_name = t.font(17 if not priority else 19, "Heavy")
+    f_base = t.font(12, "Medium")
+    f_signal = t.font(12, "Regular")
+    d.text((x0 + 14, y0 + 18), str(agent.get("order", idx + 1)).zfill(2), font=f_num, fill=t.FAINT)
+    d.text((x0 + 52, y0 + 16), t.ellipsize(d, agent.get("label", agent.get("id", "-")), f_name, x1 - x0 - 66), font=f_name, fill=t.INK)
+    d.text((x0 + 52, y0 + 39), t.ellipsize(d, agent.get("role", ""), f_base, x1 - x0 - 66), font=f_base, fill=t.INK2)
+    signal = agent.get("signal") or agent.get("tagline") or "No signal"
+    d.text((x0 + 14, y1 - 24), t.ellipsize(d, signal, f_signal, x1 - x0 - 28), font=f_signal, fill=t.FAINT)
 
 
 if __name__ == "__main__":
