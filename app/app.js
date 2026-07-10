@@ -108,7 +108,7 @@ async function loadData() {
     if (summonResponse && summonResponse.ok) {
       payload.summon = await summonResponse.json();
     }
-    payload.__source = "live";
+    payload.__source = "snapshot";
     return payload;
   } catch (error) {
     console.warn("Falling back to embedded sample data.", error);
@@ -117,7 +117,7 @@ async function loadData() {
 }
 
 function renderChrome(payload) {
-  const live = payload.__source !== "fallback";
+  const fromSnapshot = payload.__source !== "fallback";
   const arcade = payload.arcade || {};
 
   document.getElementById("arcade-title").textContent = arcade.title || "Agent Arcade";
@@ -125,12 +125,13 @@ function renderChrome(payload) {
   document.getElementById("model").textContent = `AA-8 ${(arcade.location || "local").toLowerCase()} cabinet`;
 
   const badge = document.getElementById("source-badge");
-  badge.dataset.live = String(live);
-  document.getElementById("source-text").textContent = live ? "Live" : "Sample";
+  badge.dataset.source = fromSnapshot ? "snapshot" : "fallback";
 
   const stamp = (payload.generated_at || "").slice(0, 16).replace("T", " ");
-  document.getElementById("stamp").textContent = live
-    ? `live snapshot - ${stamp} - read-only, no sends, no config writes`
+  document.getElementById("source-label").textContent = fromSnapshot ? "Snapshot" : "Sample";
+  document.getElementById("source-text").textContent = stamp || "Generated";
+  document.getElementById("stamp").textContent = fromSnapshot
+    ? `snapshot generated - ${stamp} - read-only, no sends, no config writes`
     : "sample data - file:// fallback - read-only";
 }
 

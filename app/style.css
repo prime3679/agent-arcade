@@ -129,7 +129,7 @@ h1 {
   box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.35);
 }
 
-.cabinet-source[data-live="false"] .source-light {
+.cabinet-source[data-source="fallback"] .source-light {
   background: var(--busy);
 }
 
