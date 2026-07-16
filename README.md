@@ -2,6 +2,8 @@
 
 Agent Arcade is a dependency-free local static dashboard backed by generated JSON snapshots.
 
+Zero-context contribution guidance lives in `AGENTS.md`, `docs/zero-context-contribution.md`, and `.agent/contribution-contract.json`.
+
 ## Files
 
 - `arcade.yaml`: cabinet roster for the dashboard
@@ -48,6 +50,13 @@ Verify the full local refresh/build/validation flow without committing or pushin
 python3 scripts/refresh_deploy.py --dry-run
 ```
 
+Run the zero-context gate before handoff:
+
+```bash
+python3 .agent/zero_context_gate.py audit --repo-root .
+python3 .agent/zero_context_gate.py verify --repo-root .
+```
+
 If you open `app/index.html` directly via `file://`, the dashboard will fall back to embedded sample data instead of failing.
 
 ## Notes
@@ -56,5 +65,6 @@ If you open `app/index.html` directly via `file://`, the dashboard will fall bac
 - No external services are called.
 - No cron jobs are created or modified.
 - No Hermes configuration is changed.
+- `.agent/verify_generated_workflow.py` is the local verification path for the static app and generated-JSON contract. It is not a sandbox and intentionally fails closed if `data/latest.json` or `data/summon.json` is missing.
 - `scripts/refresh_deploy.py` runs `collect_state.py`, `summon.py`, `build_dist.py`, enforces `dist/CNAME` as `arcade.adrianlumley.co`, validates a dist leak check, publishes `dist/` to `gh-pages`, pushes `main` changes if present, and prints the public URL.
 - Generated snapshots under `data/` and the built `dist/` directory are local-only runtime artifacts and should not be committed, aside from an optional small sample file if you choose to add one later.
