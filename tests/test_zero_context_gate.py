@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import shutil
 import subprocess
 import tempfile
@@ -10,6 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 GATE = ROOT / ".agent" / "zero_context_gate.py"
+VERIFY_WORKFLOW = ROOT / ".agent" / "verify_generated_workflow.py"
 
 
 def run_gate(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
@@ -20,6 +22,26 @@ def run_gate(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess
         capture_output=True,
         check=False,
     )
+
+
+def run_workflow_verifier(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["python3", str(VERIFY_WORKFLOW), *args],
+        cwd=cwd or ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+
+def tree_manifest(root: Path) -> list[tuple[str, str]]:
+    if not root.exists():
+        return []
+    manifest: list[tuple[str, str]] = []
+    for path in sorted(item for item in root.rglob("*") if item.is_file()):
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        manifest.append((path.relative_to(root).as_posix(), digest))
+    return manifest
 
 
 class ZeroContextGateTests(unittest.TestCase):
@@ -136,7 +158,39 @@ class ZeroContextGateTests(unittest.TestCase):
                 check=False,
             )
             self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertIn("requires data/latest.json", result.stderr or result.stdout)
+            self.assertIn("requires app/index.html", result.stderr or result.stdout)
+
+    def test_workflow_verifier_passes_with_deterministic_fixtures(self) -> None:
+        result = run_workflow_verifier()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("verify_generated_workflow passed", result.stdout)
+
+    def test_workflow_verifier_fails_closed_for_missing_fixture_override(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            missing = Path(temp_dir) / "missing.json"
+            result = run_workflow_verifier("--fixture-latest", str(missing))
+            self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("latest fixture is missing", result.stderr or result.stdout)
+
+    def test_workflow_verifier_fails_closed_for_malformed_fixture_override(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            bad = Path(temp_dir) / "bad.json"
+            bad.write_text("{not-json}\n", encoding="utf-8")
+            result = run_workflow_verifier("--fixture-summon", str(bad))
+            self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("summon fixture is malformed", result.stderr or result.stdout)
+
+    def test_workflow_verifier_does_not_alter_repo_data_or_dist(self) -> None:
+        before_data = tree_manifest(ROOT / "data")
+        before_dist = tree_manifest(ROOT / "dist")
+
+        result = run_workflow_verifier()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+        after_data = tree_manifest(ROOT / "data")
+        after_dist = tree_manifest(ROOT / "dist")
+        self.assertEqual(before_data, after_data)
+        self.assertEqual(before_dist, after_dist)
 
 
 if __name__ == "__main__":

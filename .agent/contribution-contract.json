@@ -19,8 +19,6 @@
     ".agent/contribution-contract.json",
     ".agent/zero_context_gate.py",
     ".agent/verify_generated_workflow.py",
-    "scripts/collect_state.py",
-    "scripts/summon.py",
     "scripts/build_dist.py",
     "scripts/refresh_deploy.py",
     "app/index.html",
@@ -77,28 +75,8 @@
   "verification": {
     "commands": [
       {
-        "id": "collect-state",
-        "description": "Refresh the local generated snapshot using the repo's read-only collector.",
-        "cwd": ".",
-        "argv": [
-          "python3",
-          "scripts/collect_state.py"
-        ],
-        "timeout_seconds": 60
-      },
-      {
-        "id": "summon",
-        "description": "Refresh briefing cartridges from the generated snapshot.",
-        "cwd": ".",
-        "argv": [
-          "python3",
-          "scripts/summon.py"
-        ],
-        "timeout_seconds": 30
-      },
-      {
         "id": "verify-generated-workflow",
-        "description": "Fail closed unless generated inputs can build and sanitize the static app bundle.",
+        "description": "Fail closed unless deterministic fixture inputs can build and sanitize the static app bundle inside an isolated temporary workspace.",
         "cwd": ".",
         "argv": [
           "python3",

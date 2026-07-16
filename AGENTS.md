@@ -18,7 +18,7 @@ Verification:
 - Canonical contribution doctrine lives at `docs/zero-context-contribution.md`.
 - Run `python3 .agent/zero_context_gate.py audit --repo-root .` before structural work.
 - Run `python3 .agent/zero_context_gate.py verify --repo-root .` before handoff.
-- Verify is a local trust check, not a sandbox. It may read repo state and local Hermes status via existing read-only scripts, and it must fail closed when required generated inputs are missing.
+- Verify is a local trust check, not a sandbox. It must stay deterministic and read-only with respect to the repo and live Hermes state, and it must fail closed when required verifier fixtures, scripts, or assets are missing or malformed.
 
 Review Classification:
 - `one_off_judgment`: acceptable taste or tradeoff disagreement with no reusable defect.

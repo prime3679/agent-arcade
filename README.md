@@ -65,6 +65,6 @@ If you open `app/index.html` directly via `file://`, the dashboard will fall bac
 - No external services are called.
 - No cron jobs are created or modified.
 - No Hermes configuration is changed.
-- `.agent/verify_generated_workflow.py` is the local verification path for the static app and generated-JSON contract. It is not a sandbox and intentionally fails closed if `data/latest.json` or `data/summon.json` is missing.
+- `.agent/verify_generated_workflow.py` is the local verification path for the static app and generated-JSON contract. It is not a sandbox; it uses deterministic public-safe fixtures in a temporary workspace and fails closed if required verifier inputs, scripts, or assets are missing or malformed.
 - `scripts/refresh_deploy.py` runs `collect_state.py`, `summon.py`, `build_dist.py`, enforces `dist/CNAME` as `arcade.adrianlumley.co`, validates a dist leak check, publishes `dist/` to `gh-pages`, pushes `main` changes if present, and prints the public URL.
 - Generated snapshots under `data/` and the built `dist/` directory are local-only runtime artifacts and should not be committed, aside from an optional small sample file if you choose to add one later.

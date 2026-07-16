@@ -15,8 +15,8 @@ Operating model:
 - `scripts/build_dist.py` produces the sanitized static bundle in `dist/`.
 
 Trust boundary:
-- Verify is honest about local trust. It is not a sandbox and does not certify that Hermes state is safe beyond the read-only commands already used here.
-- Fail closed when generated inputs such as `data/latest.json` or `data/summon.json` are missing.
+- Verify is honest about local trust. It is not a sandbox, and it must not inspect live Hermes state or mutate tracked or untracked repo files.
+- Fail closed when deterministic verifier fixtures or copied workflow inputs are missing or malformed.
 - Never create cron jobs, mutate Hermes config/state, send externally, start persistent servers, expose the network, or read secrets.
 
 Fresh-agent contribution flow:
