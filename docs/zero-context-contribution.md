@@ -13,6 +13,7 @@ Operating model:
 - `scripts/collect_state.py` may inspect local Hermes and git state with read-only commands.
 - `scripts/summon.py` derives briefings from `data/latest.json`.
 - `scripts/build_dist.py` produces the sanitized static bundle in `dist/`.
+- Any collector or summon schema change must update the deterministic fixtures and verifier tests in the same contribution.
 
 Trust boundary:
 - Verify is honest about local trust. It is not a sandbox, and it must not inspect live Hermes state or mutate tracked or untracked repo files.
