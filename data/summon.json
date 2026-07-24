@@ -1,0 +1,54 @@
+{
+  "generated_at": "2026-07-24T08:00:09-04:00",
+  "source_snapshot": "2026-07-24T08:00:07-04:00",
+  "requested": [
+    "gremlin",
+    "archivist",
+    "scout",
+    "bard"
+  ],
+  "cartridge_count": 4,
+  "telegram": "Summon Mode Snapshot 2026-07-24T08:00:07-04:00 [Gremlin] Probe the seams without touching config. Workspace is clean and quiet. Gateway is down, with 12 scheduled routines in the bay. Focus on awkward edges, surprising combinations, and anything that could jam a local-only flow. [Archivist] Preserve the operator story in clean public-safe notes. Latest snapshot landed at 2026-07-24T08:00:07-04:00. Writing replayable snapshots to data/runs/. Hermes reports version 0.19.0 and 12 visible routines. [Scout] Sweep for drift, friction, and next repair targets. All systems stable. Repo cleanliness is good, and the next scheduler tick is 2026-07-24T08:30:00-04:00. Map the sharpest local risks before they turn into operator confusion. [Bard] Turn the cabinet state into a crisp operator briefing. Agent Arcade is running in local mode. Gateway is offline, cron shows 12 routines, and the fleet mood is steady. Write with signal, compression, and a little cabinet drama.",
+  "cartridges": [
+    {
+      "persona": "gremlin",
+      "label": "Gremlin",
+      "slot": "fault-lab",
+      "accent": "orange",
+      "stamp": "stress pass",
+      "headline": "Probe the seams without touching config.",
+      "body": "Workspace is clean and quiet. Gateway is down, with 12 scheduled routines in the bay. Focus on awkward edges, surprising combinations, and anything that could jam a local-only flow.",
+      "telegram": "Gremlin cartridge Probe the seams without touching config. Workspace is clean and quiet. Gateway is down, with 12 scheduled routines in the bay. Focus on awkward edges, surprising combinations, and anything that could jam a local-only flow."
+    },
+    {
+      "persona": "archivist",
+      "label": "Archivist",
+      "slot": "memory-vault",
+      "accent": "plum",
+      "stamp": "snapshot note",
+      "headline": "Preserve the operator story in clean public-safe notes.",
+      "body": "Latest snapshot landed at 2026-07-24T08:00:07-04:00. Writing replayable snapshots to data/runs/. Hermes reports version 0.19.0 and 12 visible routines.",
+      "telegram": "Archivist cartridge Preserve the operator story in clean public-safe notes. Latest snapshot landed at 2026-07-24T08:00:07-04:00. Writing replayable snapshots to data/runs/. Hermes reports version 0.19.0 and 12 visible routines."
+    },
+    {
+      "persona": "scout",
+      "label": "Scout",
+      "slot": "branch-radar",
+      "accent": "cobalt",
+      "stamp": "repo sweep",
+      "headline": "Sweep for drift, friction, and next repair targets.",
+      "body": "All systems stable. Repo cleanliness is good, and the next scheduler tick is 2026-07-24T08:30:00-04:00. Map the sharpest local risks before they turn into operator confusion.",
+      "telegram": "Scout cartridge Sweep for drift, friction, and next repair targets. All systems stable. Repo cleanliness is good, and the next scheduler tick is 2026-07-24T08:30:00-04:00. Map the sharpest local risks before they turn into operator confusion."
+    },
+    {
+      "persona": "bard",
+      "label": "Bard",
+      "slot": "signal-stage",
+      "accent": "yellow",
+      "stamp": "operator brief",
+      "headline": "Turn the cabinet state into a crisp operator briefing.",
+      "body": "Agent Arcade is running in local mode. Gateway is offline, cron shows 12 routines, and the fleet mood is steady. Write with signal, compression, and a little cabinet drama.",
+      "telegram": "Bard cartridge Turn the cabinet state into a crisp operator briefing. Agent Arcade is running in local mode. Gateway is offline, cron shows 12 routines, and the fleet mood is steady. Write with signal, compression, and a little cabinet drama."
+    }
+  ]
+}
