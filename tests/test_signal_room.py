@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
+import json
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -19,6 +22,7 @@ def load_module(name: str, path: Path):
 
 collect = load_module("signal_room_collect", ROOT / "scripts" / "collect_state.py")
 build = load_module("signal_room_build", ROOT / "scripts" / "build_dist.py")
+refresh = load_module("signal_room_refresh", ROOT / "scripts" / "refresh_deploy.py")
 
 
 def command(stdout: str, *, ok: bool = True, returncode: int | None = 0):
@@ -92,6 +96,62 @@ class ProbeParsingTests(unittest.TestCase):
     def test_public_probe_rejects_invalid_checked_at(self) -> None:
         probe = build.public_probe({"status": "up", "checked_at": "not-a-date"}, "gateway")
         self.assertIsNone(probe["checked_at"])
+
+
+class PublicBuildTests(unittest.TestCase):
+    def test_public_assets_are_versioned_from_their_contents(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            app = root / "app"
+            app.mkdir()
+            source_html = """<!doctype html>
+<link rel="stylesheet" href="./style.css">
+<script src="./app.js"></script>
+"""
+            (app / "index.html").write_text(source_html, encoding="utf-8")
+            (app / "app.js").write_text("console.log('first');\n", encoding="utf-8")
+            (app / "style.css").write_text("body { color: red; }\n", encoding="utf-8")
+            data = root / "data" / "latest.json"
+            data.parent.mkdir()
+            data.write_text(json.dumps({}), encoding="utf-8")
+
+            original = (build.APP, build.DATA, build.DIST, refresh.DIST)
+            try:
+                build.APP, build.DATA, build.DIST = app, data, root / "dist"
+                refresh.DIST = build.DIST
+                build.main()
+                first_html = (build.DIST / "app" / "index.html").read_text(encoding="utf-8")
+
+                js_token = hashlib.sha256((app / "app.js").read_bytes()).hexdigest()[:12]
+                css_token = hashlib.sha256((app / "style.css").read_bytes()).hexdigest()[:12]
+                self.assertIn(f' src="./app.js?v={js_token}"', first_html)
+                self.assertIn(f' href="./style.css?v={css_token}"', first_html)
+                self.assertEqual((app / "index.html").read_text(encoding="utf-8"), source_html)
+
+                (app / "app.js").write_text("console.log('second');\n", encoding="utf-8")
+                (app / "style.css").write_text("body { color: blue; }\n", encoding="utf-8")
+                build.main()
+                second_html = (build.DIST / "app" / "index.html").read_text(encoding="utf-8")
+
+                second_tokens = re.findall(r"(?:app\.js|style\.css)\?v=([0-9a-f]{12})", second_html)
+                self.assertEqual(len(second_tokens), 2)
+                self.assertNotIn(js_token, second_tokens)
+                self.assertNotIn(css_token, second_tokens)
+                refresh.validate_dist()
+
+                public_index = build.DIST / "app" / "index.html"
+                public_index.write_text(re.sub(r"app\.js\?v=[0-9a-f]{12}", "app.js", second_html), encoding="utf-8")
+                with self.assertRaisesRegex(SystemExit, "unversioned public asset"):
+                    refresh.validate_dist()
+
+                public_index.write_text(
+                    re.sub(r"app\.js\?v=[0-9a-f]{12}", "missing.js?v=000000000000", second_html),
+                    encoding="utf-8",
+                )
+                with self.assertRaisesRegex(SystemExit, "referenced file does not exist"):
+                    refresh.validate_dist()
+            finally:
+                build.APP, build.DATA, build.DIST, refresh.DIST = original
 
 
 if __name__ == "__main__":

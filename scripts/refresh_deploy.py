@@ -3,12 +3,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
 from datetime import datetime
+from hashlib import sha256
+from html.parser import HTMLParser
 from pathlib import Path
+from urllib.parse import parse_qs, unquote, urlsplit
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -51,6 +55,20 @@ FORBIDDEN_TEXT_SNIPPETS = (
     '"telegram"',
     *KNOWN_PRIVATE_ROUTINE_SNIPPETS,
 )
+ASSET_VERSION_LENGTH = 12
+
+
+class PublicAssetParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.references: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        values = dict(attrs)
+        if tag == "script" and values.get("src"):
+            self.references.append(values["src"] or "")
+        if tag == "link" and "stylesheet" in (values.get("rel") or "").split() and values.get("href"):
+            self.references.append(values["href"] or "")
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -143,6 +161,47 @@ def find_json_keys(value: object, blocked: set[str], *, prefix: str = "") -> lis
     return matches
 
 
+def validate_public_assets() -> None:
+    index_path = DIST / "app" / "index.html"
+    parser = PublicAssetParser()
+    parser.feed(index_path.read_text(encoding="utf-8"))
+    asset_references = [
+        reference
+        for reference in parser.references
+        if urlsplit(reference).path.endswith((".js", ".css"))
+    ]
+    if not asset_references:
+        raise SystemExit("dist asset check failed; app/index.html has no public JS/CSS references")
+
+    referenced_names: set[str] = set()
+    dist_root = DIST.resolve()
+    for reference in asset_references:
+        parsed = urlsplit(reference)
+        if parsed.scheme or parsed.netloc or parsed.fragment:
+            raise SystemExit(f"dist asset check failed; public asset must be a local file: {reference}")
+        query = parse_qs(parsed.query, keep_blank_values=True)
+        versions = query.get("v", [])
+        if set(query) != {"v"} or len(versions) != 1 or not re.fullmatch(
+            rf"[0-9a-f]{{{ASSET_VERSION_LENGTH}}}", versions[0]
+        ):
+            raise SystemExit(f"dist asset check failed; unversioned public asset: {reference}")
+
+        asset_path = (index_path.parent / unquote(parsed.path)).resolve()
+        if not asset_path.is_relative_to(dist_root) or not asset_path.is_file():
+            raise SystemExit(f"dist asset check failed; referenced file does not exist: {reference}")
+        expected = sha256(asset_path.read_bytes()).hexdigest()[:ASSET_VERSION_LENGTH]
+        if versions[0] != expected:
+            raise SystemExit(f"dist asset check failed; stale version for {reference}; expected {expected}")
+        referenced_names.add(asset_path.name)
+
+    missing_references = {"app.js", "style.css"} - referenced_names
+    if missing_references:
+        raise SystemExit(
+            "dist asset check failed; app/index.html does not reference: "
+            + ", ".join(sorted(missing_references))
+        )
+
+
 def validate_dist() -> None:
     if not DIST.exists():
         raise SystemExit("dist/ is missing; build step did not complete")
@@ -152,6 +211,8 @@ def validate_dist() -> None:
     missing = sorted(REQUIRED_DIST_FILES - relpaths)
     if missing:
         raise SystemExit(f"dist leak check failed; missing files: {', '.join(missing)}")
+
+    validate_public_assets()
 
     cname_value = (DIST / "CNAME").read_text(encoding="utf-8").strip()
     if cname_value != PUBLIC_DOMAIN:

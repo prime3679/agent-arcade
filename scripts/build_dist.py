@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import shutil
@@ -14,6 +15,8 @@ DATA = ROOT / "data" / "latest.json"
 CNAME = "arcade.adrianlumley.co"
 VALID_STATUSES = {"up", "down", "unverified"}
 SAFE_ENTRY_STATES = {"active", "paused", "disabled", "unknown"}
+PUBLIC_ASSETS = ("app.js", "style.css")
+ASSET_VERSION_LENGTH = 12
 
 
 def safe_datetime(value: Any) -> str | None:
@@ -27,6 +30,30 @@ def copy_tree(src: Path, dst: Path) -> None:
     if dst.exists():
         shutil.rmtree(dst)
     shutil.copytree(src, dst)
+
+
+def asset_version(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()[:ASSET_VERSION_LENGTH]
+
+
+def version_public_assets(app_dir: Path) -> None:
+    index_path = app_dir / "index.html"
+    html = index_path.read_text(encoding="utf-8")
+    for asset_name in PUBLIC_ASSETS:
+        asset_path = app_dir / asset_name
+        if not asset_path.is_file():
+            raise SystemExit(f"public asset missing from build: {asset_path}")
+        reference = f"./{asset_name}"
+        versioned_reference = f"{reference}?v={asset_version(asset_path)}"
+        pattern = rf'(?P<prefix>\b(?:href|src)=["\']){re.escape(reference)}(?:\?[^"\']*)?(?P<suffix>["\'])'
+        html, count = re.subn(
+            pattern,
+            lambda match: f"{match.group('prefix')}{versioned_reference}{match.group('suffix')}",
+            html,
+        )
+        if count != 1:
+            raise SystemExit(f"expected exactly one public reference to {reference}, found {count}")
+    index_path.write_text(html, encoding="utf-8")
 
 
 def public_probe(probe: dict[str, Any], label: str) -> dict[str, Any]:
@@ -95,6 +122,7 @@ def main() -> int:
         shutil.rmtree(DIST)
     DIST.mkdir()
     copy_tree(APP, DIST / "app")
+    version_public_assets(DIST / "app")
     (DIST / "data").mkdir()
 
     payload = json.loads(DATA.read_text(encoding="utf-8"))
