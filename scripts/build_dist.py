@@ -41,7 +41,7 @@ def public_probe(probe: dict[str, Any], label: str) -> dict[str, Any]:
     return {
         "status": status,
         "reason": reasons[status],
-        "checked_at": probe.get("checked_at"),
+        "checked_at": safe_datetime(probe.get("checked_at")),
     }
 
 
@@ -79,7 +79,6 @@ def safe_payload(payload: dict[str, Any]) -> dict[str, Any]:
             },
         },
         "repo": {
-            "branch": repo.get("branch"),
             "clean": repo.get("clean"),
             "changed_files": repo.get("changed_files"),
             "checked_at": repo.get("checked_at") or payload.get("generated_at"),

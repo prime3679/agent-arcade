@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { ageDetails, buildSignals, normalizeProbe, verdictFor } = require("../app/app.js");
+const { ageDetails, buildSignals, normalizeProbe, scheduleTimeText, verdictFor } = require("../app/app.js");
 
 const generatedAt = "2026-08-10T12:00:00Z";
 const currentPayload = {
@@ -40,4 +40,15 @@ test("verified down is reserved for an explicit down status", () => {
   const signals = buildSignals(payload);
   assert.equal(signals[0].status, "down");
   assert.equal(verdictFor(payload, signals), "Gateway is down.");
+});
+
+test("public workspace detail never renders a branch", () => {
+  const payload = { ...currentPayload, visibility: "public", repo: { ...currentPayload.repo, branch: "codex/signal-room" } };
+  const workspace = buildSignals(payload).find((signal) => signal.name === "Workspace");
+  assert.equal(workspace.detail, "working tree");
+});
+
+test("next-calendar-day schedule times are marked tomorrow", () => {
+  assert.doesNotMatch(scheduleTimeText("2026-08-10T21:00:00-04:00", "2026-08-10T17:00:00-04:00"), /tomorrow/);
+  assert.match(scheduleTimeText("2026-08-11T08:00:00-04:00", "2026-08-10T17:00:00-04:00"), / · tomorrow$/);
 });

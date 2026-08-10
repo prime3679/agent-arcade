@@ -52,7 +52,7 @@ const ageDetails = (generatedAt, now = new Date()) => {
   if (minutes < 1) return { stale: false, text: "snapshot is less than a minute old", hours };
   if (minutes < 60) return { stale: false, text: `snapshot is ${minutes} minute${minutes === 1 ? "" : "s"} old`, hours };
   const wholeHours = Math.floor(hours);
-  return { stale: hours > 12, text: `snapshot is ${wholeHours} hour${wholeHours === 1 ? "" : "s"} old`, hours };
+  return { stale: elapsed > STALE_AFTER_MS, text: `snapshot is ${wholeHours} hour${wholeHours === 1 ? "" : "s"} old`, hours };
 };
 
 const normalizeProbe = (probe = {}, label) => {
@@ -106,7 +106,9 @@ function buildSignals(payload) {
       name: "Workspace",
       status: repo.clean === true ? "up" : repo.clean === false ? "attention" : "unverified",
       stateLabel: repo.clean === true ? "clean" : repo.clean === false && changed != null ? `${changed} changed` : "unverified",
-      detail: repo.branch ? `branch ${repo.branch}` : repo.clean == null ? "workspace status is missing" : "working tree",
+      detail: payload.visibility !== "public" && repo.branch
+        ? `branch ${repo.branch}`
+        : repo.clean == null ? "workspace status is missing" : "working tree",
       checkedAt: repo.checked_at || payload.generated_at,
     },
     {
@@ -161,6 +163,17 @@ function renderSignals(signals) {
 
 const isOnce = (entry) => String(entry.schedule || "").toLowerCase().includes("once");
 
+const calendarDateKey = (value) => typeof value === "string" && /^\d{4}-\d{2}-\d{2}T/.test(value)
+  ? value.slice(0, 10)
+  : null;
+
+const scheduleTimeText = (value, generatedAt) => {
+  const time = timeText(value);
+  const nextDate = calendarDateKey(value);
+  const snapshotDate = calendarDateKey(generatedAt);
+  return nextDate && snapshotDate && nextDate !== snapshotDate ? `${time} · tomorrow` : time;
+};
+
 function renderSchedule(payload) {
   const entries = payload.hermes?.cron_list?.entries || [];
   const start = validDate(payload.generated_at);
@@ -175,7 +188,7 @@ function renderSchedule(payload) {
   document.getElementById("schedule-list").innerHTML = upcoming.length
     ? upcoming.map((entry) => `
       <li>
-        <time datetime="${esc(entry.next_run)}">${esc(timeText(entry.next_run))}</time>
+        <time datetime="${esc(entry.next_run)}">${esc(scheduleTimeText(entry.next_run, payload.generated_at))}</time>
         <span class="schedule-name">${esc(isPublic ? "Scheduled routine" : entry.name || "Unnamed routine")}${isOnce(entry) ? " · once" : ""}</span>
         ${!isPublic && entry.schedule ? `<code>${esc(entry.schedule)}</code>` : ""}
       </li>
@@ -197,7 +210,7 @@ function render(payload) {
   renderColophon(payload);
 }
 
-const SignalRoom = { ageDetails, buildSignals, normalizeProbe, verdictFor };
+const SignalRoom = { ageDetails, buildSignals, normalizeProbe, scheduleTimeText, verdictFor };
 
 if (typeof module !== "undefined" && module.exports) module.exports = SignalRoom;
 if (typeof document !== "undefined") loadData().then(render);

@@ -77,16 +77,21 @@ class ProbeParsingTests(unittest.TestCase):
             "hermes": {
                 "gateway": {"status": "up", "reason": "/Users/private", "checked_at": "2026-08-10T08:00:00-04:00", "pid": 12345},
                 "cron": {"status": "up", "reason": "provider auth detail", "checked_at": "2026-08-10T08:00:00-04:00"},
-                "cron_list": {"count": 1, "entries": [{"name": "rogue-pregnancy-weekly", "id": "deadbeef", "workdir": "/Users/private", "next_run": "raw output"}]},
+                "cron_list": {"count": 1, "entries": [{"name": "fixture-private-routine", "id": "deadbeef", "workdir": "/Users/private", "next_run": "raw output"}]},
             },
-            "repo": {"head": "abc1234", "clean": True, "changed_files": 0},
+            "repo": {"branch": "codex/signal-room", "head": "abc1234", "clean": True, "changed_files": 0},
         }
         public = build.safe_payload(payload)
         rendered = str(public)
-        for secret in ("rogue-pregnancy-weekly", "/Users/private", "12345", "deadbeef", "abc1234", "provider auth detail", "raw output"):
+        for secret in ("fixture-private-routine", "codex/signal-room", "/Users/private", "12345", "deadbeef", "abc1234", "provider auth detail", "raw output"):
             self.assertNotIn(secret, rendered)
+        self.assertNotIn("branch", public["repo"])
         self.assertEqual(public["hermes"]["gateway"]["status"], "up")
         self.assertEqual(public["hermes"]["cron_list"]["entries"][0]["state"], "unknown")
+
+    def test_public_probe_rejects_invalid_checked_at(self) -> None:
+        probe = build.public_probe({"status": "up", "checked_at": "not-a-date"}, "gateway")
+        self.assertIsNone(probe["checked_at"])
 
 
 if __name__ == "__main__":

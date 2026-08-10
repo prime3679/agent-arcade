@@ -15,7 +15,8 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parent.parent
-PRIVATE_ROUTINE = "rogue-pregnancy-weekly"
+PRIVATE_ROUTINE = "fixture-private-routine"
+FIXTURE_BRANCH = "codex/signal-room"
 REQUIRED_FILES = (
     Path("app/index.html"),
     Path("app/app.js"),
@@ -59,7 +60,7 @@ FIXTURE_LATEST = {
                 },
                 {
                     "id": "beadfeed",
-                    "name": "family-weekend-weather-and-outing-brief",
+                    "name": "fixture-household-brief",
                     "state": "active",
                     "schedule": "once",
                     "next_run": "2026-08-10T13:00:00-04:00",
@@ -69,7 +70,7 @@ FIXTURE_LATEST = {
         },
     },
     "repo": {
-        "branch": "codex/signal-room",
+        "branch": FIXTURE_BRANCH,
         "head": "abc1234",
         "clean": True,
         "changed_files": 0,
@@ -173,7 +174,7 @@ def main(argv: list[str] | None = None) -> int:
             os.environ["PYTHONDONTWRITEBYTECODE"] = previous_env
 
     joined = "\n".join(shipped_text)
-    for forbidden in (PRIVATE_ROUTINE, "family-weekend-weather-and-outing-brief", "76095", "/Users/private", "abc1234", "private free text"):
+    for forbidden in (PRIVATE_ROUTINE, "fixture-household-brief", FIXTURE_BRANCH, "76095", "/Users/private", "abc1234", "private free text"):
         if forbidden in joined:
             raise SystemExit(f"public build exposed forbidden fixture value: {forbidden}")
     if dist_latest.get("visibility") != "public":
@@ -182,6 +183,8 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit("dist/data/latest.json must preserve verified gateway status")
     if any("name" in entry for entry in dist_latest.get("hermes", {}).get("cron_list", {}).get("entries", [])):
         raise SystemExit("dist/data/latest.json must not expose routine names")
+    if "branch" in dist_latest.get("repo", {}):
+        raise SystemExit("dist/data/latest.json must not expose the repository branch")
 
     print("verify_generated_workflow passed")
     return 0

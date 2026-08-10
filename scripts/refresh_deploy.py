@@ -35,9 +35,9 @@ KNOWN_PRIVATE_ROUTINE_SNIPPETS = (
     "rogue-watchdog-health-monitor",
     "rogue-pr-babysitter-loop",
     "rogue-knowledge-",
-    "rogue-pregnancy-weekly",
-    "family-weekend-weather-and-outing-brief",
-    "baby-2-contingency-plan",
+    "fixture-private-routine",
+    "fixture-household-brief",
+    "fixture-contingency-drill",
 )
 FORBIDDEN_TEXT_SNIPPETS = (
     str(ROOT),
