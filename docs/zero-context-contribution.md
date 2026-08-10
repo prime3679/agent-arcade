@@ -1,6 +1,6 @@
 # Zero-Context Contribution Standard
 
-Use this repo as a local-only static cabinet.
+Use this repo as a local-first static operational report with a public-redacted build.
 
 Source of truth:
 - `AGENTS.md` for control-plane rules and escalation.
@@ -11,8 +11,10 @@ Source of truth:
 Operating model:
 - The UI is static and reads generated JSON only.
 - `scripts/collect_state.py` may inspect local Hermes and git state with read-only commands.
-- `scripts/summon.py` derives briefings from `data/latest.json`.
+- `scripts/summon.py` derives local-only briefings from `data/latest.json`; the app and public build do not consume them.
 - `scripts/build_dist.py` produces the sanitized static bundle in `dist/`.
+- New probes use `{status: up|down|unverified, reason, checked_at}`. Unknown, failed, or missing command results are unverified; only explicit negative output is down.
+- Public artifacts contain schedule times and counts, never routine names or free-text summons.
 - Any collector or summon schema change must update the deterministic fixtures and verifier tests in the same contribution.
 
 Trust boundary:

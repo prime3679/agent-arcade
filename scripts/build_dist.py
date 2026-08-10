@@ -2,22 +2,25 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 DIST = ROOT / "dist"
 APP = ROOT / "app"
 DATA = ROOT / "data" / "latest.json"
-SUMMON = ROOT / "data" / "summon.json"
 CNAME = "arcade.adrianlumley.co"
+VALID_STATUSES = {"up", "down", "unverified"}
+SAFE_ENTRY_STATES = {"active", "paused", "disabled", "unknown"}
 
-SAFE_AGENT_FIELDS = {
-    "id", "label", "role", "tagline", "cabinet", "accent", "order", "status", "signal"
-}
-SUMMON_PERSONAS = {"gremlin", "archivist", "scout", "bard"}
-SUMMON_BODY_LIMIT = 280
-SUMMON_TELEGRAM_LIMIT = 1200
+
+def safe_datetime(value: Any) -> str | None:
+    text = str(value or "")
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:\d{2})", text):
+        return text
+    return None
 
 
 def copy_tree(src: Path, dst: Path) -> None:
@@ -26,97 +29,62 @@ def copy_tree(src: Path, dst: Path) -> None:
     shutil.copytree(src, dst)
 
 
-def safe_payload(payload: dict) -> dict:
+def public_probe(probe: dict[str, Any], label: str) -> dict[str, Any]:
+    status = probe.get("status")
+    if status not in VALID_STATUSES:
+        status = "up" if probe.get("running") is True else "unverified"
+    reasons = {
+        "up": f"{label} activity confirmed",
+        "down": f"{label} explicitly reported unavailable",
+        "unverified": f"{label} could not be verified",
+    }
+    return {
+        "status": status,
+        "reason": reasons[status],
+        "checked_at": probe.get("checked_at"),
+    }
+
+
+def safe_payload(payload: dict[str, Any]) -> dict[str, Any]:
     hermes = payload.get("hermes", {})
     repo = payload.get("repo", {})
     cron = hermes.get("cron", {})
     cron_list = hermes.get("cron_list", {})
     entries = cron_list.get("entries", []) or []
+    safe_entries = [
+        {
+            "state": entry.get("state") if entry.get("state") in SAFE_ENTRY_STATES else "unknown",
+            "next_run": safe_datetime(entry.get("next_run")),
+            "schedule": "once" if "once" in str(entry.get("schedule", "")).lower() else None,
+        }
+        for entry in entries[:24]
+    ]
 
-    safe_entries = []
-    for i, entry in enumerate(entries[:12], start=1):
-        safe_entries.append({
-            "id": f"routine-{i:02d}",
-            "state": entry.get("state", "active"),
-            "name": f"Routine {i:02d}",
-            "schedule": entry.get("schedule", "configured"),
-            "next_run": entry.get("next_run", "scheduled"),
-            "last_run": "ok" if "ok" in str(entry.get("last_run", "")).lower() else "unknown",
-        })
+    gateway = public_probe(hermes.get("gateway", {}), "gateway")
+    scheduler = public_probe(cron, "scheduler")
+    scheduler.update({
+        "active_jobs": cron.get("active_jobs"),
+        "next_run": safe_datetime(cron.get("next_run")),
+    })
 
     return {
         "generated_at": payload.get("generated_at"),
-        "arcade": payload.get("arcade", {}),
+        "visibility": "public",
         "hermes": {
-            "version": {
-                "ok": hermes.get("version", {}).get("ok"),
-                "version": hermes.get("version", {}).get("version"),
-                "build": hermes.get("version", {}).get("build"),
-                "upstream": hermes.get("version", {}).get("upstream"),
-            },
-            "gateway": {
-                "ok": hermes.get("gateway", {}).get("ok"),
-                "running": hermes.get("gateway", {}).get("running"),
-            },
-            "cron": {
-                "ok": cron.get("ok"),
-                "running": cron.get("running"),
-                "active_jobs": cron.get("active_jobs"),
-                "next_run": cron.get("next_run"),
-            },
+            "gateway": gateway,
+            "cron": scheduler,
             "cron_list": {
-                "ok": cron_list.get("ok"),
                 "count": cron_list.get("count"),
                 "entries": safe_entries,
             },
         },
         "repo": {
+            "branch": repo.get("branch"),
             "clean": repo.get("clean"),
             "changed_files": repo.get("changed_files"),
-            "staged_files": repo.get("staged_files"),
-            "unstaged_files": repo.get("unstaged_files"),
-            "untracked_files": repo.get("untracked_files"),
+            "checked_at": repo.get("checked_at") or payload.get("generated_at"),
         },
-        "agents": [
-            {k: v for k, v in agent.items() if k in SAFE_AGENT_FIELDS}
-            for agent in payload.get("agents", [])
-        ],
-    }
-
-
-def clamp_text(value: str, limit: int) -> str:
-    text = " ".join(str(value or "").split())
-    if len(text) <= limit:
-        return text
-    return text[: max(0, limit - 1)].rstrip() + "…"
-
-
-def safe_summon(payload: dict) -> dict:
-    safe_cartridges = []
-    for cartridge in payload.get("cartridges", []):
-        persona = cartridge.get("persona")
-        if persona not in SUMMON_PERSONAS:
-            continue
-        safe_cartridges.append(
-            {
-                "persona": persona,
-                "label": cartridge.get("label"),
-                "slot": cartridge.get("slot"),
-                "accent": cartridge.get("accent"),
-                "stamp": cartridge.get("stamp"),
-                "headline": clamp_text(cartridge.get("headline", ""), 96),
-                "body": clamp_text(cartridge.get("body", ""), SUMMON_BODY_LIMIT),
-                "telegram": clamp_text(cartridge.get("telegram", ""), 320),
-            }
-        )
-
-    return {
-        "generated_at": payload.get("generated_at"),
-        "source_snapshot": payload.get("source_snapshot"),
-        "requested": [name for name in payload.get("requested", []) if name in SUMMON_PERSONAS],
-        "cartridge_count": len(safe_cartridges),
-        "telegram": clamp_text(payload.get("telegram", ""), SUMMON_TELEGRAM_LIMIT),
-        "cartridges": safe_cartridges,
+        "run_history_count": payload.get("run_history_count"),
     }
 
 
@@ -131,32 +99,23 @@ def main() -> int:
     (DIST / "data").mkdir()
 
     payload = json.loads(DATA.read_text(encoding="utf-8"))
-    (DIST / "data" / "latest.json").write_text(json.dumps(safe_payload(payload), indent=2) + "\n", encoding="utf-8")
-    if SUMMON.exists():
-        summon_payload = json.loads(SUMMON.read_text(encoding="utf-8"))
-        (DIST / "data" / "summon.json").write_text(
-            json.dumps(safe_summon(summon_payload), indent=2) + "\n",
-            encoding="utf-8",
-        )
+    public_data = json.dumps(safe_payload(payload), indent=2) + "\n"
+    (DIST / "data" / "latest.json").write_text(public_data, encoding="utf-8")
 
-    # Make root URL work.
-    root_index = DIST / "index.html"
-    root_index.write_text("""<!doctype html>
+    (DIST / "index.html").write_text("""<!doctype html>
+<html lang=\"en\">
 <meta charset=\"utf-8\">
 <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
-<title>Agent Arcade</title>
+<title>Signal Room · Operations</title>
 <meta http-equiv=\"refresh\" content=\"0; url=./app/\">
 <link rel=\"canonical\" href=\"./app/\">
-<a href=\"./app/\">Open Agent Arcade</a>
+<a href=\"./app/\">Open Signal Room · Operations</a>
+</html>
 """, encoding="utf-8")
     (DIST / "CNAME").write_text(f"{CNAME}\n", encoding="utf-8")
 
     print(f"Built {DIST}")
-    included = "Included: app/, data/latest.json"
-    if SUMMON.exists():
-        included += ", data/summon.json"
-    included += ", index.html, CNAME"
-    print(included)
+    print("Included: app/, data/latest.json, index.html, CNAME")
     return 0
 
 

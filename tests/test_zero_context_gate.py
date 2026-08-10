@@ -176,9 +176,9 @@ class ZeroContextGateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             bad = Path(temp_dir) / "bad.json"
             bad.write_text("{not-json}\n", encoding="utf-8")
-            result = run_workflow_verifier("--fixture-summon", str(bad))
+            result = run_workflow_verifier("--fixture-latest", str(bad))
             self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertIn("summon fixture is malformed", result.stderr or result.stdout)
+            self.assertIn("latest fixture is malformed", result.stderr or result.stdout)
 
     def test_workflow_verifier_does_not_alter_repo_data_or_dist(self) -> None:
         before_data = tree_manifest(ROOT / "data")

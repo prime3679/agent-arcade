@@ -1,6 +1,6 @@
-# Agent Arcade
+# Signal Room · Operations
 
-Rogue is the product/control plane. Codex is the primary builder. Claude Code is the second-engineer/deep reviewer. Keep v1 local, static, and safe.
+Keep v1 local-first, static, read-only, and safe. The public build is a redacted operational report and remains separate from the public fiction serial.
 
 Rules:
 - No external sends or auth changes.

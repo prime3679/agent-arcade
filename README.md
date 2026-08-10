@@ -1,70 +1,35 @@
-# Agent Arcade v1
+# Signal Room · Operations
 
-Agent Arcade is a dependency-free local static dashboard backed by generated JSON snapshots.
+Signal Room is a dependency-free, read-only operational report backed by generated JSON snapshots. It is a separate product from the public Signal Room fiction serial and does not link to it.
 
-Zero-context contribution guidance lives in `AGENTS.md`, `docs/zero-context-contribution.md`, and `.agent/contribution-contract.json`.
+The page is a mobile-first editorial read: one computed verdict, four sourced signals, the next 24 hours, and a small run-history colophon. It distinguishes verified up, verified down, and unverified; snapshots older than 12 hours cannot make operational claims.
 
-## Files
+## Data boundary
 
-- `arcade.yaml`: cabinet roster for the dashboard
-- `scripts/collect_state.py`: collects local Hermes and repo state using read-only commands
-- `data/latest.json`: most recent generated snapshot
-- `data/runs/*.json`: timestamped snapshot history
-- `app/`: static HTML, CSS, and JavaScript UI
+- `scripts/collect_state.py` runs read-only local Hermes and git commands and writes the full local snapshot to `data/latest.json` plus retained history in `data/runs/`.
+- `scripts/build_dist.py` builds the public-safe `dist/` tree. The public JSON omits routine names, process IDs, paths, raw output, provider/auth detail, free-text summons, git hashes, and private operational context.
+- `app/` is static HTML, CSS, and JavaScript and reads generated JSON only. A `file://` load uses clearly labeled fictional sample data.
+- `scripts/summon.py` remains a local-only briefing artifact. It is not read by the product and is never copied into `dist/`.
 
-## Run
+No external service is called, no cron job or Hermes configuration is changed, and run history remains capped at 25 snapshots.
 
-Generate a fresh snapshot:
+## Run locally
 
 ```bash
 python3 scripts/collect_state.py
-```
-
-Serve the project locally so the app can fetch `data/latest.json`:
-
-```bash
+python3 scripts/build_dist.py
 python3 -m http.server 8000
 ```
 
-Then open:
+Open `http://localhost:8000/app/` for the local-full view or `http://localhost:8000/dist/app/` for the public-redacted build.
 
-```text
-http://localhost:8000/app/
-```
-
-Refresh the snapshot set, rebuild the public-safe `dist/` bundle, validate the leak check, and deploy:
+## Verify
 
 ```bash
-python3 scripts/refresh_deploy.py
-```
-
-Limit the summon step to specific personas:
-
-```bash
-python3 scripts/refresh_deploy.py scout bard
-```
-
-Verify the full local refresh/build/validation flow without committing or pushing:
-
-```bash
-python3 scripts/refresh_deploy.py --dry-run
-```
-
-Run the zero-context gate before handoff:
-
-```bash
+python3 -m unittest discover -s tests
+node --test tests/test_app.js
 python3 .agent/zero_context_gate.py audit --repo-root .
 python3 .agent/zero_context_gate.py verify --repo-root .
 ```
 
-If you open `app/index.html` directly via `file://`, the dashboard will fall back to embedded sample data instead of failing.
-
-## Notes
-
-- The collector uses read-only local commands only: `hermes version`, `hermes gateway status`, `hermes cron status`, `hermes cron list`, and read-only `git` commands for this repo.
-- No external services are called.
-- No cron jobs are created or modified.
-- No Hermes configuration is changed.
-- `.agent/verify_generated_workflow.py` is the local verification path for the static app and generated-JSON contract. It is not a sandbox; it uses deterministic public-safe fixtures in a temporary workspace and fails closed if required verifier inputs, scripts, or assets are missing or malformed.
-- `scripts/refresh_deploy.py` runs `collect_state.py`, `summon.py`, `build_dist.py`, enforces `dist/CNAME` as `arcade.adrianlumley.co`, validates a dist leak check, publishes `dist/` to `gh-pages`, pushes `main` changes if present, and prints the public URL.
-- Generated snapshots under `data/` and the built `dist/` directory are local-only runtime artifacts and should not be committed, aside from an optional small sample file if you choose to add one later.
+Publishing remains configured for `arcade.adrianlumley.co`, but verification does not publish. See `PUBLISHING.md` for the explicit deployment path.

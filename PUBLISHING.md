@@ -1,58 +1,31 @@
-# Publishing plan for arcade.adrian
+# Publishing Signal Room · Operations
 
-Goal: publish Agent Arcade as a private/public-safe static link at `arcade.adrian` or the final domain Adrian chooses.
+The current target remains `arcade.adrianlumley.co`. Domain migration is intentionally out of scope.
 
-## Safety posture
+Only the sanitized static `dist/` tree may be published. It contains the app, a public-redacted `data/latest.json`, the root redirect, and `CNAME`. It must not contain local run history, summon output, routine names, process IDs, paths, command output, provider/auth detail, git hashes, or private context.
 
-Publish only sanitized static assets:
-- `app/`
-- a public-safe `data/latest.json` export
-- optional PNG previews
+## Local build and privacy validation
 
-Do not publish:
-- raw command stdout/stderr
-- local home paths
-- full cron workdirs
-- auth/provider details
-- family/medical-sensitive labels unless Adrian explicitly approves
-- `.git/`, `data/runs/`, `__pycache__/`, local logs
+```bash
+python3 scripts/collect_state.py
+python3 scripts/build_dist.py
+python3 -c 'import scripts.refresh_deploy as r; r.validate_dist()'
+```
 
-## Recommended deploy path
-
-One-command path:
+## Explicit deployment path
 
 ```bash
 python3 scripts/refresh_deploy.py
 ```
 
-What it does:
-- runs `scripts/collect_state.py`
-- runs `scripts/summon.py` with all personas by default, or only the personas passed on the command line
-- runs `scripts/build_dist.py`
-- ensures `dist/CNAME` contains `arcade.adrianlumley.co`
-- validates the built `dist/` tree for common leaks before publish
-- commits and pushes `main` changes if there are any non-generated repo changes
-- publishes `dist/` to the `gh-pages` branch
-- prints the public URL: `http://arcade.adrianlumley.co/` until GitHub finishes HTTPS certificate provisioning
+That command refreshes local state and the local-only summon artifact, builds and validates `dist/`, commits eligible source changes, and publishes `dist/` to `gh-pages`. It requires `main` and performs external writes. Do not run it for ordinary verification or from a feature branch.
 
-Useful variants:
+Useful controls:
 
 ```bash
-python3 scripts/refresh_deploy.py scout bard
 python3 scripts/refresh_deploy.py --dry-run
 python3 scripts/refresh_deploy.py --skip-main-push
 python3 scripts/refresh_deploy.py --skip-gh-pages
 ```
 
-`--dry-run` is the local verification path: it refreshes state, rebuilds `dist/`, enforces the CNAME, and runs the leak check without committing or pushing.
-
-## Domain note
-
-`arcade.adrian` may not be a resolvable public DNS name unless Adrian owns or controls that zone/TLD locally. If not, use one of:
-- `arcade.adrianlumley.co`
-- `agent-arcade.adrianlumley.co`
-- a Cloudflare Pages preview URL first
-
-## Process rule
-
-Claude Code owns visual/product design for Agent Arcade. Codex should implement deployment/build mechanics only after Rogue and Adrian select the design direction.
+The public product has no link to the separate Signal Room fiction serial.

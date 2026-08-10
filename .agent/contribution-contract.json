@@ -20,6 +20,7 @@
     ".agent/zero_context_gate.py",
     ".agent/verify_generated_workflow.py",
     "scripts/build_dist.py",
+    "scripts/collect_state.py",
     "scripts/refresh_deploy.py",
     "app/index.html",
     "app/app.js",
@@ -93,6 +94,29 @@
           "-m",
           "unittest",
           "tests.test_zero_context_gate"
+        ],
+        "timeout_seconds": 60
+      },
+      {
+        "id": "signal-room-tests",
+        "description": "Verify tri-state probe parsing, stale-data degradation, and public rendering logic.",
+        "cwd": ".",
+        "argv": [
+          "python3",
+          "-m",
+          "unittest",
+          "tests.test_signal_room"
+        ],
+        "timeout_seconds": 60
+      },
+      {
+        "id": "signal-room-browser-logic",
+        "description": "Run dependency-free JavaScript tests for status normalization and verdicts.",
+        "cwd": ".",
+        "argv": [
+          "node",
+          "--test",
+          "tests/test_app.js"
         ],
         "timeout_seconds": 60
       }

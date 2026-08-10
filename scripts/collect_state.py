@@ -128,39 +128,73 @@ def parse_hermes_version(result: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def parse_gateway_status(result: dict[str, Any]) -> dict[str, Any]:
+def checked_at_now() -> str:
+    return datetime.now().astimezone().isoformat(timespec="seconds")
+
+
+def parse_gateway_status(result: dict[str, Any], checked_at: str | None = None) -> dict[str, Any]:
     text = result["stdout"]
-    running = "gateway service is loaded" in text.lower() or "gateway is running" in text.lower()
+    lower_text = text.lower()
     pid_match = re.search(r'"PID"\s*=\s*(\d+)|\bPID\b:\s*(\d+)', text)
+    supervised_pid_match = re.search(r"gateway is supervised by launchd\s*\(pid\s+(\d+)\)", text, re.IGNORECASE)
     heartbeat_match = re.search(r"Ticker heartbeat:\s*(.+)", text)
     profile_lines = re.findall(r"^\s*[✓-]\s+([^\s]+)\s+—\s+PID\s+(\d+)", text, re.MULTILINE)
 
+    if not result["ok"]:
+        status = "unverified"
+        reason = "hermes command not found" if result["returncode"] is None else "gateway status command failed"
+    elif (
+        "gateway service is loaded" in lower_text
+        or "gateway is running" in lower_text
+        or supervised_pid_match
+    ):
+        status = "up"
+        reason = "gateway supervision confirmed"
+    elif re.search(r"\bgateway\b.*\b(not running|not loaded|stopped|inactive)\b", lower_text):
+        status = "down"
+        reason = "gateway explicitly reported unavailable"
+    else:
+        status = "unverified"
+        reason = "gateway status output not recognized"
+
+    matched_pid = supervised_pid_match or pid_match
+    pid = int(next(group for group in matched_pid.groups() if group)) if matched_pid else None
+
     return {
         "ok": result["ok"],
-        "running": running,
-        "pid": int(next(group for group in pid_match.groups() if group)) if pid_match else None,
+        "status": status,
+        "reason": reason,
+        "checked_at": checked_at or checked_at_now(),
+        "pid": pid,
         "heartbeat": heartbeat_match.group(1).strip() if heartbeat_match else None,
         "other_profiles": [{"name": name, "pid": int(pid)} for name, pid in profile_lines],
         "command": command_metadata(result),
     }
 
 
-def parse_cron_status(result: dict[str, Any]) -> dict[str, Any]:
+def parse_cron_status(result: dict[str, Any], checked_at: str | None = None) -> dict[str, Any]:
     text = result["stdout"]
     lower_text = text.lower()
-    running = False
-    if "not running" in lower_text:
-        running = False
-    elif "cron jobs will fire automatically" in lower_text:
-        running = True
-    elif re.search(r"\bcron\b.*\brunning\b", lower_text):
-        running = True
+    if not result["ok"]:
+        status = "unverified"
+        reason = "hermes command not found" if result["returncode"] is None else "scheduler status command failed"
+    elif re.search(r"\bcron\b.*\b(not running|stopped|inactive|disabled)\b", lower_text):
+        status = "down"
+        reason = "scheduler explicitly reported unavailable"
+    elif "cron jobs will fire automatically" in lower_text or re.search(r"\bcron\b.*\brunning\b", lower_text):
+        status = "up"
+        reason = "scheduler activity confirmed"
+    else:
+        status = "unverified"
+        reason = "scheduler status output not recognized"
     count_match = re.search(r"(\d+)\s+active job\(s\)", text)
     next_run_match = re.search(r"Next run:\s*(.+)", text)
 
     return {
         "ok": result["ok"],
-        "running": running,
+        "status": status,
+        "reason": reason,
+        "checked_at": checked_at or checked_at_now(),
         "active_jobs": int(count_match.group(1)) if count_match else None,
         "next_run": next_run_match.group(1).strip() if next_run_match else None,
         "command": command_metadata(result),
@@ -244,59 +278,20 @@ def first_non_empty_line(text: str) -> str | None:
     return None
 
 
-def enrich_agents(config_agents: list[dict[str, str]], state: dict[str, Any]) -> list[dict[str, Any]]:
-    gateway_running = state["hermes"]["gateway"]["running"]
-    cron_running = state["hermes"]["cron"]["running"]
-    git_clean = state["repo"]["clean"]
-    run_count = state["hermes"]["cron_list"]["count"]
-
-    enriched: list[dict[str, Any]] = []
-    for index, agent in enumerate(config_agents):
-        live_status = "ready"
-        signal = "All systems stable."
-
-        if agent["id"] == "sentinel" and not gateway_running:
-            live_status = "warning"
-            signal = "Gateway is offline."
-        elif agent["id"] == "ticker" and not cron_running:
-            live_status = "warning"
-            signal = "Scheduler is not running."
-        elif agent["id"] == "scout" and not git_clean:
-            live_status = "active"
-            signal = f"{state['repo']['changed_files']} file(s) changed in this repo."
-        elif agent["id"] == "archivist":
-            live_status = "active"
-            signal = "Writing replayable snapshots to data/runs/."
-        elif agent["id"] == "patchbay" and run_count:
-            live_status = "active"
-            signal = f"{run_count} cron job definitions detected."
-
-        enriched.append(
-            {
-                **agent,
-                "order": index + 1,
-                "status": live_status,
-                "signal": signal,
-            }
-        )
-
-    return enriched
-
-
 def build_payload() -> dict[str, Any]:
     config = read_arcade_config(CONFIG_PATH)
     generated_at = datetime.now().astimezone().isoformat(timespec="seconds")
 
     hermes_version = parse_hermes_version(run_command(["hermes", "version"], cwd=ROOT))
-    gateway_status = parse_gateway_status(run_command(["hermes", "gateway", "status"], cwd=ROOT))
-    cron_status = parse_cron_status(run_command(["hermes", "cron", "status"], cwd=ROOT))
+    gateway_status = parse_gateway_status(run_command(["hermes", "gateway", "status"], cwd=ROOT), generated_at)
+    cron_status = parse_cron_status(run_command(["hermes", "cron", "status"], cwd=ROOT), generated_at)
     cron_list = parse_cron_list(run_command(["hermes", "cron", "list"], cwd=ROOT))
     repo = parse_git_status(ROOT)
 
     payload: dict[str, Any] = {
         "generated_at": generated_at,
         "arcade": {
-            "title": config.get("title", "Agent Arcade"),
+            "title": config.get("title", "Signal Room · Operations"),
             "subtitle": config.get("subtitle", ""),
             "location": config.get("location", "local"),
             "agent_count": len(config.get("agents", [])),
@@ -307,10 +302,9 @@ def build_payload() -> dict[str, Any]:
             "cron": cron_status,
             "cron_list": cron_list,
         },
-        "repo": repo,
-        "agents": [],
+        "repo": {**repo, "checked_at": generated_at},
+        "run_history_count": min(RUN_RETENTION, len(list(RUNS_DIR.glob("*.json"))) + 1),
     }
-    payload["agents"] = enrich_agents(config.get("agents", []), payload)
     return payload
 
 
@@ -373,7 +367,7 @@ def main() -> int:
     print(
         "Snapshot: "
         f"Hermes {payload['hermes']['version']['version'] or 'unknown'} | "
-        f"gateway={'up' if payload['hermes']['gateway']['running'] else 'down'} | "
+        f"gateway={payload['hermes']['gateway']['status']} | "
         f"cron_jobs={payload['hermes']['cron_list']['count']} | "
         f"git_clean={payload['repo']['clean']}"
     )

@@ -15,6 +15,7 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parent.parent
+PRIVATE_ROUTINE = "rogue-pregnancy-weekly"
 REQUIRED_FILES = (
     Path("app/index.html"),
     Path("app/app.js"),
@@ -23,29 +24,25 @@ REQUIRED_FILES = (
     Path("scripts/refresh_deploy.py"),
 )
 FIXTURE_LATEST = {
-    "generated_at": "2026-07-16T00:00:00-04:00",
-    "arcade": {
-        "location": "local",
-        "mode": "static",
-    },
+    "generated_at": "2026-08-10T08:00:00-04:00",
+    "arcade": {"title": "Signal Room · Operations", "location": "local"},
     "hermes": {
-        "version": {
-            "ok": True,
-            "version": "1.2.3",
-            "build": "fixture-build",
-            "upstream": "abc1234",
-            "command": {"returncode": 0},
-        },
+        "version": {"ok": True, "version": "1.2.3", "upstream": "abc1234"},
         "gateway": {
             "ok": True,
-            "running": True,
+            "status": "up",
+            "reason": "gateway supervision confirmed",
+            "checked_at": "2026-08-10T08:00:00-04:00",
+            "pid": 76095,
             "command": {"returncode": 0},
         },
         "cron": {
             "ok": True,
-            "running": True,
+            "status": "up",
+            "reason": "scheduler activity confirmed",
+            "checked_at": "2026-08-10T08:00:00-04:00",
             "active_jobs": 2,
-            "next_run": "2026-07-16T00:05:00-04:00",
+            "next_run": "2026-08-10T09:00:00-04:00",
             "command": {"returncode": 0},
         },
         "cron_list": {
@@ -54,85 +51,33 @@ FIXTURE_LATEST = {
             "entries": [
                 {
                     "id": "deadbeef",
+                    "name": PRIVATE_ROUTINE,
                     "state": "active",
-                    "schedule": "*/5 * * * *",
-                    "next_run": "2026-07-16T00:05:00-04:00",
-                    "last_run": "ok",
+                    "schedule": "0 9 * * *",
+                    "next_run": "2026-08-10T09:00:00-04:00",
+                    "workdir": "/Users/private/medical",
                 },
                 {
                     "id": "beadfeed",
-                    "state": "paused",
-                    "schedule": "0 * * * *",
-                    "next_run": "2026-07-16T01:00:00-04:00",
-                    "last_run": "skipped",
+                    "name": "family-weekend-weather-and-outing-brief",
+                    "state": "active",
+                    "schedule": "once",
+                    "next_run": "2026-08-10T13:00:00-04:00",
                 },
             ],
             "command": {"returncode": 0},
         },
     },
     "repo": {
+        "branch": "codex/signal-room",
+        "head": "abc1234",
         "clean": True,
         "changed_files": 0,
-        "staged_files": 0,
-        "unstaged_files": 0,
-        "untracked_files": 0,
+        "checked_at": "2026-08-10T08:00:00-04:00",
         "status_lines": ["M app/app.js"],
     },
-    "agents": [
-        {
-            "id": "scout",
-            "label": "Scout",
-            "role": "Sweep",
-            "tagline": "Find drift.",
-            "cabinet": "radar",
-            "accent": "cobalt",
-            "order": 1,
-            "status": "ready",
-            "signal": "Everything is steady.",
-            "private_notes": "must not leak",
-        }
-    ],
-}
-FIXTURE_SUMMON = {
-    "generated_at": "2026-07-16T00:01:00-04:00",
-    "source_snapshot": "2026-07-16T00:00:00-04:00",
-    "requested": ["scout", "bard", "rogue-persona"],
-    "telegram": "Fixture summon output for deterministic verification.",
-    "cartridge_count": 3,
-    "cartridges": [
-        {
-            "persona": "scout",
-            "label": "Scout",
-            "slot": "branch-radar",
-            "accent": "cobalt",
-            "stamp": "repo sweep",
-            "headline": "Sweep for drift.",
-            "body": "Everything important is visible.",
-            "telegram": "Scout telegram",
-            "command": {"returncode": 0},
-        },
-        {
-            "persona": "bard",
-            "label": "Bard",
-            "slot": "signal-stage",
-            "accent": "yellow",
-            "stamp": "operator brief",
-            "headline": "Sing the state.",
-            "body": "Keep the brief concise.",
-            "telegram": "Bard telegram",
-            "raw": "must not leak",
-        },
-        {
-            "persona": "rogue-persona",
-            "label": "Ignored",
-            "slot": "shadow",
-            "accent": "gray",
-            "stamp": "ignore",
-            "headline": "Should be dropped.",
-            "body": "This persona is not public safe.",
-            "telegram": "ignored",
-        },
-    ],
+    "run_history_count": 25,
+    "summon": {"telegram": "private free text"},
 }
 
 
@@ -140,7 +85,6 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-root", default=str(ROOT), help="Repo root to verify.")
     parser.add_argument("--fixture-latest", help="Optional JSON file that overrides the built-in latest fixture.")
-    parser.add_argument("--fixture-summon", help="Optional JSON file that overrides the built-in summon fixture.")
     return parser.parse_args(argv)
 
 
@@ -162,29 +106,18 @@ def load_json_fixture(path: Path, label: str) -> dict[str, Any]:
 
 
 def validate_latest_fixture(payload: dict[str, Any]) -> None:
-    required_types = {
-        "generated_at": str,
-        "arcade": dict,
-        "hermes": dict,
-        "repo": dict,
-        "agents": list,
-    }
-    for key, expected_type in required_types.items():
+    for key, expected_type in {"generated_at": str, "hermes": dict, "repo": dict}.items():
         if not isinstance(payload.get(key), expected_type):
             raise SystemExit(f"latest fixture must contain {key!r} as {expected_type.__name__}")
-
-
-def validate_summon_fixture(payload: dict[str, Any]) -> None:
-    required_types = {
-        "generated_at": str,
-        "source_snapshot": str,
-        "requested": list,
-        "telegram": str,
-        "cartridges": list,
-    }
-    for key, expected_type in required_types.items():
-        if not isinstance(payload.get(key), expected_type):
-            raise SystemExit(f"summon fixture must contain {key!r} as {expected_type.__name__}")
+    for key in ("gateway", "cron", "cron_list"):
+        if not isinstance(payload["hermes"].get(key), dict):
+            raise SystemExit(f"latest fixture must contain hermes.{key} as dict")
+    for key in ("gateway", "cron"):
+        probe = payload["hermes"][key]
+        if probe.get("status") not in {"up", "down", "unverified"}:
+            raise SystemExit(f"latest fixture hermes.{key}.status must use the tri-state contract")
+        if not isinstance(probe.get("reason"), str) or not isinstance(probe.get("checked_at"), str):
+            raise SystemExit(f"latest fixture hermes.{key} must include reason and checked_at")
 
 
 def load_module(module_name: str, path: Path) -> Any:
@@ -196,84 +129,59 @@ def load_module(module_name: str, path: Path) -> Any:
     return module
 
 
-def write_json(path: Path, payload: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-
-
-def copy_required_tree(repo_root: Path, temp_root: Path) -> None:
-    for relative_path in REQUIRED_FILES:
-        source = repo_root / relative_path
-        require_file(source, f"verify_generated_workflow requires {relative_path.as_posix()} in the repo")
-        destination = temp_root / relative_path
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, destination)
-
-
-def exercise_workflow(
-    repo_root: Path,
-    latest_payload: dict[str, Any],
-    summon_payload: dict[str, Any],
-) -> tuple[dict[str, Any], dict[str, Any]]:
-    with tempfile.TemporaryDirectory(prefix="agent-arcade-verify-") as temp_dir:
+def exercise_workflow(repo_root: Path, latest_payload: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
+    with tempfile.TemporaryDirectory(prefix="signal-room-verify-") as temp_dir:
         temp_root = Path(temp_dir) / "repo"
         temp_root.mkdir()
-        copy_required_tree(repo_root, temp_root)
-        write_json(temp_root / "data" / "latest.json", latest_payload)
-        write_json(temp_root / "data" / "summon.json", summon_payload)
+        for relative_path in REQUIRED_FILES:
+            source = repo_root / relative_path
+            require_file(source, f"verify_generated_workflow requires {relative_path.as_posix()} in the repo")
+            destination = temp_root / relative_path
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, destination)
+        data_path = temp_root / "data" / "latest.json"
+        data_path.parent.mkdir()
+        data_path.write_text(json.dumps(latest_payload, indent=2) + "\n", encoding="utf-8")
 
         build_dist = load_module("verify_build_dist", temp_root / "scripts" / "build_dist.py")
         refresh_deploy = load_module("verify_refresh_deploy", temp_root / "scripts" / "refresh_deploy.py")
-
         build_dist.main()
         refresh_deploy.validate_dist()
 
         dist_latest = load_json_fixture(temp_root / "dist" / "data" / "latest.json", "dist latest")
-        dist_summon = load_json_fixture(temp_root / "dist" / "data" / "summon.json", "dist summon")
-        return dist_latest, dist_summon
+        shipped_text = [path.read_text(encoding="utf-8") for path in temp_root.joinpath("dist").rglob("*") if path.is_file()]
+        return dist_latest, shipped_text
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv or sys.argv[1:])
     repo_root = Path(args.repo_root).resolve()
-
-    latest_payload = (
-        load_json_fixture(Path(args.fixture_latest).resolve(), "latest")
-        if args.fixture_latest
-        else FIXTURE_LATEST
-    )
-    summon_payload = (
-        load_json_fixture(Path(args.fixture_summon).resolve(), "summon")
-        if args.fixture_summon
-        else FIXTURE_SUMMON
-    )
-
+    latest_payload = load_json_fixture(Path(args.fixture_latest).resolve(), "latest") if args.fixture_latest else FIXTURE_LATEST
     validate_latest_fixture(latest_payload)
-    validate_summon_fixture(summon_payload)
 
-    previous_dont_write_bytecode = sys.dont_write_bytecode
+    previous = sys.dont_write_bytecode
     previous_env = os.environ.get("PYTHONDONTWRITEBYTECODE")
     sys.dont_write_bytecode = True
     os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
     try:
-        dist_latest, dist_summon = exercise_workflow(repo_root, latest_payload, summon_payload)
+        dist_latest, shipped_text = exercise_workflow(repo_root, latest_payload)
     finally:
-        sys.dont_write_bytecode = previous_dont_write_bytecode
+        sys.dont_write_bytecode = previous
         if previous_env is None:
             os.environ.pop("PYTHONDONTWRITEBYTECODE", None)
         else:
             os.environ["PYTHONDONTWRITEBYTECODE"] = previous_env
 
-    if dist_latest.get("repo", {}).get("status_lines") is not None:
-        raise SystemExit("dist/data/latest.json must not expose repo.status_lines")
-    if dist_latest.get("hermes", {}).get("gateway", {}).get("command") is not None:
-        raise SystemExit("dist/data/latest.json must not expose hermes.gateway.command")
-    if dist_summon.get("cartridge_count") != len(dist_summon.get("cartridges", [])):
-        raise SystemExit("dist/data/summon.json cartridge_count does not match cartridges length")
-    if "rogue-persona" in dist_summon.get("requested", []):
-        raise SystemExit("dist/data/summon.json must drop unsupported requested personas")
-    if any(cartridge.get("persona") == "rogue-persona" for cartridge in dist_summon.get("cartridges", [])):
-        raise SystemExit("dist/data/summon.json must drop unsupported cartridges")
+    joined = "\n".join(shipped_text)
+    for forbidden in (PRIVATE_ROUTINE, "family-weekend-weather-and-outing-brief", "76095", "/Users/private", "abc1234", "private free text"):
+        if forbidden in joined:
+            raise SystemExit(f"public build exposed forbidden fixture value: {forbidden}")
+    if dist_latest.get("visibility") != "public":
+        raise SystemExit("dist/data/latest.json must identify public visibility")
+    if dist_latest.get("hermes", {}).get("gateway", {}).get("status") != "up":
+        raise SystemExit("dist/data/latest.json must preserve verified gateway status")
+    if any("name" in entry for entry in dist_latest.get("hermes", {}).get("cron_list", {}).get("entries", [])):
+        raise SystemExit("dist/data/latest.json must not expose routine names")
 
     print("verify_generated_workflow passed")
     return 0

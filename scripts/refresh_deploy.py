@@ -29,9 +29,16 @@ REQUIRED_DIST_FILES = {
     "app/app.js",
     "app/style.css",
     "data/latest.json",
-    "data/summon.json",
 }
 FORBIDDEN_DIST_PARTS = {".git", "__pycache__", "data/runs"}
+KNOWN_PRIVATE_ROUTINE_SNIPPETS = (
+    "rogue-watchdog-health-monitor",
+    "rogue-pr-babysitter-loop",
+    "rogue-knowledge-",
+    "rogue-pregnancy-weekly",
+    "family-weekend-weather-and-outing-brief",
+    "baby-2-contingency-plan",
+)
 FORBIDDEN_TEXT_SNIPPETS = (
     str(ROOT),
     str(Path.home()),
@@ -39,12 +46,16 @@ FORBIDDEN_TEXT_SNIPPETS = (
     '"stderr"',
     '"raw"',
     '"status_lines"',
+    '"pid"',
+    '"head"',
+    '"telegram"',
+    *KNOWN_PRIVATE_ROUTINE_SNIPPETS,
 )
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Refresh Agent Arcade state and publish the sanitized static site.",
+        description="Refresh Signal Room state and publish the sanitized static site.",
     )
     parser.add_argument(
         "personas",
@@ -159,11 +170,6 @@ def validate_dist() -> None:
     if latest_matches:
         raise SystemExit(f"dist leak check failed; blocked keys in dist/data/latest.json: {', '.join(latest_matches)}")
 
-    summon_payload = json.loads((DIST / "data" / "summon.json").read_text(encoding="utf-8"))
-    summon_matches = find_json_keys(summon_payload, {"stdout", "stderr", "raw", "status_lines", "command"})
-    if summon_matches:
-        raise SystemExit(f"dist leak check failed; blocked keys in dist/data/summon.json: {', '.join(summon_matches)}")
-
     for path in files:
         try:
             text = path.read_text(encoding="utf-8")
@@ -222,7 +228,7 @@ def commit_and_push_main(*, dry_run: bool) -> None:
         log("Only generated artifacts changed on main; nothing to commit")
         return
 
-    message = f"Refresh Agent Arcade deploy flow ({datetime.now().astimezone().date().isoformat()})"
+    message = f"Refresh Signal Room deploy flow ({datetime.now().astimezone().date().isoformat()})"
     run(["git", "commit", "-m", message])
     run(["git", "push", "origin", "main"])
 
@@ -273,7 +279,7 @@ def publish_gh_pages(*, dry_run: bool) -> None:
                 return
 
             stamp = datetime.now().astimezone().isoformat(timespec="seconds")
-            run(["git", "commit", "-m", f"Publish Agent Arcade {stamp}"], cwd=worktree)
+            run(["git", "commit", "-m", f"Publish Signal Room {stamp}"], cwd=worktree)
             run(["git", "push", "--force", "origin", "gh-pages"], cwd=worktree)
         finally:
             run(["git", "worktree", "remove", "--force", str(worktree)])

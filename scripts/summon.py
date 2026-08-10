@@ -104,11 +104,17 @@ def build_cartridge(persona: str, payload: dict) -> dict:
     meta = PERSONA_META[persona]
     scout = find_agent(payload, "scout")
     archivist = find_agent(payload, "archivist")
+    gateway_status = gateway.get("status")
+    gateway_phrase = {
+        "up": "verified up",
+        "down": "verified down",
+        "unverified": "unverified",
+    }.get(gateway_status, "unverified")
 
     if persona == "gremlin":
         headline = "Probe the seams without touching config."
         body = (
-            f"{summarize_repo(repo)} Gateway is {'up' if gateway.get('running') else 'down'}, "
+            f"{summarize_repo(repo)} Gateway is {gateway_phrase}, "
             f"with {cron_list.get('count', 0)} scheduled routines in the bay. "
             "Focus on awkward edges, surprising combinations, and anything that could jam a local-only flow."
         )
@@ -130,8 +136,8 @@ def build_cartridge(persona: str, payload: dict) -> dict:
     else:
         headline = "Turn the cabinet state into a crisp operator briefing."
         body = (
-            f"Agent Arcade is running in {payload.get('arcade', {}).get('location', 'local')} mode. "
-            f"Gateway is {'online' if gateway.get('running') else 'offline'}, "
+            f"Signal Room is running in {payload.get('arcade', {}).get('location', 'local')} mode. "
+            f"Gateway is {gateway_phrase}, "
             f"cron shows {cron_list.get('count', 0)} routines, and the fleet mood is "
             f"{'steady' if repo.get('clean') else 'restless'}. "
             "Write with signal, compression, and a little cabinet drama."

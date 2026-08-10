@@ -1,263 +1,203 @@
-// Agent Arcade cabinet renderer.
-// Reads the generated snapshot (data/latest.json) and paints a local-only
-// fleet instrument. Falls back to embedded sample data under file:// where
-// fetch is blocked. Consumes the raw snapshot shape directly, so it stays in
-// lockstep with collect_state.py.
+const STALE_AFTER_MS = 12 * 60 * 60 * 1000;
 
 const sampleData = {
-  generated_at: "2026-06-21T15:01:44-04:00",
-  arcade: { title: "Agent Arcade", location: "local", agent_count: 8 },
+  generated_at: "2026-08-10T08:32:00-04:00",
+  visibility: "sample",
   hermes: {
-    version: { version: "0.17.0", build: "2026.6.19" },
-    gateway: { running: true, pid: 76095 },
-    cron: { running: true, active_jobs: 10, next_run: "2026-06-21T18:00:00-04:00" },
+    gateway: {
+      status: "up",
+      reason: "gateway supervision confirmed",
+      checked_at: "2026-08-10T08:32:00-04:00",
+    },
+    cron: {
+      status: "up",
+      reason: "scheduler activity confirmed",
+      checked_at: "2026-08-10T08:32:00-04:00",
+      active_jobs: 3,
+      next_run: "2026-08-10T09:00:00-04:00",
+    },
     cron_list: {
-      count: 10,
+      count: 3,
       entries: [
-        { state: "active", name: "morning-operating-brief", schedule: "0 8 * * 1-5", next_run: "2026-06-22T08:00:00-04:00" },
-        { state: "active", name: "weekly-rogue-fiction-draft", schedule: "0 20 * * 0", next_run: "2026-06-21T20:00:00-04:00" },
-        { state: "active", name: "rogue-watchdog-health-monitor", schedule: "0 */6 * * *", next_run: "2026-06-21T18:00:00-04:00" },
-        { state: "active", name: "Routine 04", schedule: "30 8 * * 5", next_run: "2026-06-26T08:30:00-04:00" },
-        { state: "active", name: "Routine 05", schedule: "0 19 * * 0", next_run: "2026-06-21T19:00:00-04:00" },
-        { state: "active", name: "rogue-knowledge-curated-sync", schedule: "20 21 * * *", next_run: "2026-06-21T21:20:00-04:00" },
-        { state: "active", name: "rogue-pr-babysitter-loop", schedule: "0 8-18 * * 1-5", next_run: "2026-06-22T08:00:00-04:00" },
-        { state: "active", name: "rogue-personal-site-loop", schedule: "0 */6 * * *", next_run: "2026-06-21T18:00:00-04:00" },
-        { state: "active", name: "rogue-knowledge-hygiene-loop", schedule: "30 21 * * *", next_run: "2026-06-21T21:30:00-04:00" },
-        { state: "active", name: "rogue-disk-hygiene-watchdog", schedule: "0 */6 * * *", next_run: "2026-06-21T18:00:00-04:00" },
+        { name: "Morning systems review", state: "active", schedule: "0 9 * * *", next_run: "2026-08-10T09:00:00-04:00" },
+        { name: "Archive handoff", state: "active", schedule: "once", next_run: "2026-08-10T13:30:00-04:00" },
+        { name: "Evening status review", state: "active", schedule: "0 18 * * *", next_run: "2026-08-10T18:00:00-04:00" },
       ],
     },
   },
-  repo: { branch: "main", head: "7ab318b", clean: false, changed_files: 8 },
-  agents: [
-    { label: "Rogue", role: "Product control plane", cabinet: "command-deck", accent: "ember", order: 1, status: "ready", signal: "All systems stable." },
-    { label: "Codex", role: "Primary builder", cabinet: "builder-bay", accent: "laser", order: 2, status: "ready", signal: "All systems stable." },
-    { label: "Claude Code", role: "Deep reviewer", cabinet: "review-rail", accent: "mint", order: 3, status: "ready", signal: "All systems stable." },
-    { label: "Scout", role: "Repo ranger", cabinet: "branch-radar", accent: "cobalt", order: 4, status: "active", signal: "8 files changed." },
-    { label: "Sentinel", role: "Gateway watcher", cabinet: "pulse-tower", accent: "gold", order: 5, status: "ready", signal: "All systems stable." },
-    { label: "Ticker", role: "Scheduler monitor", cabinet: "clockwork", accent: "coral", order: 6, status: "ready", signal: "All systems stable." },
-    { label: "Patchbay", role: "Local automation", cabinet: "wire-mesh", accent: "ice", order: 7, status: "active", signal: "10 routines detected." },
-    { label: "Archivist", role: "Snapshot keeper", cabinet: "memory-vault", accent: "plum", order: 8, status: "active", signal: "Writing snapshots." },
-  ],
+  repo: { clean: true, changed_files: 0, branch: "sample", checked_at: "2026-08-10T08:32:00-04:00" },
+  run_history_count: 25,
 };
 
-const sampleSummon = {
-  generated_at: "2026-06-21T15:41:22-04:00",
-  source_snapshot: "2026-06-21T15:40:25-04:00",
-  requested: ["gremlin", "archivist", "scout", "bard"],
-  cartridge_count: 4,
-  cartridges: [
-    {
-      persona: "gremlin",
-      label: "Gremlin",
-      slot: "fault-lab",
-      accent: "orange",
-      stamp: "stress pass",
-      headline: "Probe the seams without touching config.",
-      body: "Workspace drift is visible: 3 changed, 1 staged, 2 untracked. Gateway is up, with 10 scheduled routines in the bay. Focus on awkward edges and anything that could jam a local-only flow.",
-    },
-    {
-      persona: "archivist",
-      label: "Archivist",
-      slot: "memory-vault",
-      accent: "plum",
-      stamp: "snapshot note",
-      headline: "Preserve the operator story in clean public-safe notes.",
-      body: "Latest snapshot landed this afternoon. Replayable state is active, Hermes is stable, and the scheduler inventory is visible for future diffing.",
-    },
-    {
-      persona: "scout",
-      label: "Scout",
-      slot: "branch-radar",
-      accent: "cobalt",
-      stamp: "repo sweep",
-      headline: "Sweep for drift, friction, and next repair targets.",
-      body: "Scout sees local change pressure and the next scheduler tick already lined up. Map the sharpest risks before they turn into operator confusion.",
-    },
-    {
-      persona: "bard",
-      label: "Bard",
-      slot: "signal-stage",
-      accent: "yellow",
-      stamp: "operator brief",
-      headline: "Turn the cabinet state into a crisp operator briefing.",
-      body: "Agent Arcade is local, the gateway is online, cron is loaded, and the fleet reads a little restless. Keep the copy sharp, warm, and compressed.",
-    },
-  ],
+const esc = (value) =>
+  String(value ?? "").replace(/[&<>\"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[character]);
+
+const validDate = (value) => {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
 };
 
-const esc = (s) =>
-  String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-
-const stateOf = (status) => {
-  if (status === "ready") return "ok";
-  if (status === "warning") return "warn";
-  return "busy";
+const timeText = (value) => {
+  const date = validDate(value);
+  return date ? new Intl.DateTimeFormat([], { hour: "numeric", minute: "2-digit" }).format(date) : "time unknown";
 };
-const hhmm = (iso) => (iso && iso.includes("T") ? iso.split("T")[1].slice(0, 5) : "—");
-const shortDateTime = (iso) => (iso && iso.includes("T") ? iso.slice(5, 16).replace("T", " ") : "—");
-const sentence = (text) => (text ? String(text).replace(/\.$/, "") : "");
+
+const ageDetails = (generatedAt, now = new Date()) => {
+  const generated = validDate(generatedAt);
+  if (!generated) return { stale: true, text: "snapshot time is unavailable", hours: null };
+  const elapsed = now.getTime() - generated.getTime();
+  if (elapsed < -5 * 60 * 1000) return { stale: true, text: "snapshot time is in the future", hours: null };
+  const minutes = Math.max(0, Math.floor(elapsed / 60000));
+  const hours = elapsed / 3600000;
+  if (minutes < 1) return { stale: false, text: "snapshot is less than a minute old", hours };
+  if (minutes < 60) return { stale: false, text: `snapshot is ${minutes} minute${minutes === 1 ? "" : "s"} old`, hours };
+  const wholeHours = Math.floor(hours);
+  return { stale: hours > 12, text: `snapshot is ${wholeHours} hour${wholeHours === 1 ? "" : "s"} old`, hours };
+};
+
+const normalizeProbe = (probe = {}, label) => {
+  if (["up", "down", "unverified"].includes(probe.status)) {
+    return { status: probe.status, reason: probe.reason || `${label} supplied no reason`, checkedAt: probe.checked_at };
+  }
+  if (probe.running === true) return { status: "up", reason: `${label} reported running in a legacy snapshot`, checkedAt: probe.checked_at };
+  if (probe.running === false) return { status: "unverified", reason: `${label} used an ambiguous legacy status`, checkedAt: probe.checked_at };
+  return { status: "unverified", reason: `${label} status is missing`, checkedAt: probe.checked_at };
+};
 
 async function loadData() {
   try {
-    const [latestResponse, summonResponse] = await Promise.all([
-      fetch("../data/latest.json", { cache: "no-store" }),
-      fetch("../data/summon.json", { cache: "no-store" }).catch(() => null),
-    ]);
-    if (!latestResponse.ok) throw new Error(`HTTP ${latestResponse.status}`);
-    const payload = await latestResponse.json();
-    if (summonResponse && summonResponse.ok) {
-      payload.summon = await summonResponse.json();
-    }
-    payload.__source = "snapshot";
-    return payload;
+    const response = await fetch("../data/latest.json", { cache: "no-store" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return { ...(await response.json()), __source: "snapshot" };
   } catch (error) {
-    console.warn("Falling back to embedded sample data.", error);
-    return { ...sampleData, summon: sampleSummon, __source: "fallback" };
+    console.warn("Snapshot unavailable; showing embedded sample data.", error);
+    return { ...sampleData, __source: "fallback" };
   }
 }
 
-function renderChrome(payload) {
-  const fromSnapshot = payload.__source !== "fallback";
-  const arcade = payload.arcade || {};
-
-  document.getElementById("arcade-title").textContent = arcade.title || "Agent Arcade";
-  document.getElementById("subtitle").textContent = arcade.subtitle || "Local-first dashboard for Hermes operators";
-  document.getElementById("model").textContent = `AA-8 ${(arcade.location || "local").toLowerCase()} cabinet`;
-
-  const badge = document.getElementById("source-badge");
-  badge.dataset.source = fromSnapshot ? "snapshot" : "fallback";
-
-  const stamp = (payload.generated_at || "").slice(0, 16).replace("T", " ");
-  document.getElementById("source-label").textContent = fromSnapshot ? "Snapshot" : "Sample";
-  document.getElementById("source-text").textContent = stamp || "Generated";
-  document.getElementById("stamp").textContent = fromSnapshot
-    ? `snapshot generated - ${stamp} - read-only, no sends, no config writes`
-    : "sample data - file:// fallback - read-only";
-}
-
-function renderReadout(payload) {
+function buildSignals(payload) {
   const hermes = payload.hermes || {};
   const repo = payload.repo || {};
-  const version = hermes.version || {};
-  const cron = hermes.cron || {};
-  const jobs = cron.active_jobs ?? hermes.cron_list?.count ?? 0;
-  const gatewayUp = !!hermes.gateway?.running;
-  const clean = !!repo.clean;
+  const age = ageDetails(payload.generated_at);
+  const isFallback = payload.__source === "fallback";
+  const forceUnverified = age.stale || isFallback;
+  const staleReason = isFallback ? "sample data is not an operational reading" : age.text;
+  const gateway = normalizeProbe(hermes.gateway, "gateway");
+  const scheduler = normalizeProbe(hermes.cron, "scheduler");
+  const jobCount = hermes.cron?.active_jobs ?? hermes.cron_list?.count;
+  const changed = Number.isFinite(Number(repo.changed_files)) ? Number(repo.changed_files) : null;
 
-  const facts = [
-    ["Hermes", `v${version.version || "?"}`, version.build ? `build ${version.build}` : "build unknown", version.ok === false ? "warn" : "ok"],
-    ["Gateway", gatewayUp ? "running" : "offline", hermes.gateway?.pid ? `pid ${hermes.gateway.pid}` : "no pid", gatewayUp ? "ok" : "warn"],
-    ["Cron", cron.running ? "running" : "paused", `${jobs} jobs`, cron.running ? "ok" : "warn"],
-    ["Repository", clean ? "clean" : `${repo.changed_files ?? 0} changed`, repo.branch ? `${repo.branch} @ ${repo.head || "—"}` : "branch unavailable", clean ? "ok" : "busy"],
-    ["Next Run", cron.running ? hhmm(cron.next_run) : "—", shortDateTime(cron.next_run), cron.running ? "ok" : "warn"],
+  const signals = [
+    {
+      name: "Gateway",
+      status: gateway.status,
+      detail: gateway.reason,
+      checkedAt: gateway.checkedAt || payload.generated_at,
+    },
+    {
+      name: "Scheduler",
+      status: scheduler.status,
+      detail: scheduler.status === "up" && jobCount != null
+        ? `${jobCount} routine${jobCount === 1 ? "" : "s"} armed${hermes.cron?.next_run ? `, next at ${timeText(hermes.cron.next_run)}` : ""}`
+        : scheduler.reason,
+      checkedAt: scheduler.checkedAt || payload.generated_at,
+    },
+    {
+      name: "Workspace",
+      status: repo.clean === true ? "up" : repo.clean === false ? "attention" : "unverified",
+      stateLabel: repo.clean === true ? "clean" : repo.clean === false && changed != null ? `${changed} changed` : "unverified",
+      detail: repo.branch ? `branch ${repo.branch}` : repo.clean == null ? "workspace status is missing" : "working tree",
+      checkedAt: repo.checked_at || payload.generated_at,
+    },
+    {
+      name: "Snapshot",
+      status: age.stale ? "unverified" : "up",
+      stateLabel: age.stale ? "unverified" : "current",
+      detail: age.text,
+      checkedAt: payload.generated_at,
+    },
   ];
 
-  document.getElementById("readout").innerHTML = facts
-    .map(
-      ([label, value, detail, state]) => `
-      <div class="readout-fact" data-state="${esc(state)}">
-        <span class="fact-label">${esc(label)}</span>
-        <strong>${esc(value)}</strong>
-        <span class="fact-detail">${esc(detail)}</span>
-      </div>`
-    )
-    .join("");
-}
-
-function renderFleet(payload) {
-  const agents = payload.agents || [];
-  document.getElementById("fleet-count").textContent = `${agents.length} agents`;
-
-  document.getElementById("fleet").innerHTML = agents
-    .map((a, i) => {
-      const s = stateOf(a.status);
-      const num = String(a.order ?? i + 1).padStart(2, "0");
-      return `
-      <article class="fleet-row" data-state="${s}" data-accent="${esc(a.accent || "none")}">
-        <span class="row-index">${esc(num)}</span>
-        <div class="agent-main">
-          <h3>${esc(a.label || a.id || "—")}</h3>
-          <p>${esc(a.role || "")}</p>
-        </div>
-        <div class="agent-signal">
-          <span>${esc(sentence(a.signal) || sentence(a.tagline) || "No signal")}</span>
-        </div>
-        <div class="agent-meta">
-          <span class="state-word">${esc(a.status || "ready")}</span>
-          <span>${esc(a.cabinet || "cabinet")}</span>
-        </div>
-      </article>`;
-    })
-    .join("");
-}
-
-function renderRoutines(payload) {
-  const entries = payload.hermes?.cron_list?.entries || [];
-  document.getElementById("routine-count").textContent = `${entries.length} routines`;
-  document.getElementById("routines").innerHTML = entries
-    .map((c) => {
-      const on = (c.state || "active") === "active";
-      const next = shortDateTime(c.next_run);
-      return `
-      <div class="routine-row" data-state="${on ? "ok" : "warn"}">
-        <span class="routine-state">${esc(c.state || "active")}</span>
-        <span class="routine-name">${esc(c.name)}</span>
-        <span class="routine-schedule">${esc(c.schedule || "")}</span>
-        <span class="routine-next">${esc(next)}</span>
-      </div>`;
-    })
-    .join("");
-}
-
-function renderSummon(payload) {
-  const summon = payload.summon;
-  const panel = document.getElementById("story-panel");
-  const count = document.getElementById("story-count");
-  const story = document.getElementById("story");
-  const cartridges = summon?.cartridges || [];
-
-  if (!cartridges.length) {
-    panel.classList.add("is-hidden");
-    story.innerHTML = "";
-    return;
+  if (forceUnverified) {
+    return signals.map((signal) => ({ ...signal, status: "unverified", stateLabel: "unverified", detail: staleReason }));
   }
-
-  panel.classList.remove("is-hidden");
-  count.textContent = `${cartridges.length} cartridges`;
-
-  const telegram = summon.telegram
-    ? `<p class="story-telegram">${esc(summon.telegram)}</p>`
-    : "";
-  const source = summon.source_snapshot
-    ? `<p class="story-source">Snapshot ${esc(summon.source_snapshot)}</p>`
-    : "";
-
-  story.innerHTML =
-    `<div class="story-lede">${source}${telegram}</div>` +
-    cartridges
-    .map((cartridge, index) => {
-      const num = String(index + 1).padStart(2, "0");
-      return `
-      <article class="cart" data-accent="${esc(cartridge.accent || "orange")}">
-        <div class="cart-top">
-          <span class="cart-num">${esc(num)}</span>
-          <span class="cart-stamp">${esc(cartridge.stamp || "manual summon")}</span>
-        </div>
-        <div class="cart-label">${esc(cartridge.label || cartridge.persona || "Cartridge")}</div>
-        <div class="cart-slot">${esc(cartridge.slot || "bay")}</div>
-        <div class="cart-head">${esc(cartridge.headline || "")}</div>
-        <p class="cart-body">${esc(cartridge.body || "")}</p>
-      </article>`;
-    })
-    .join("");
+  return signals;
 }
 
-function renderDashboard(payload) {
-  renderChrome(payload);
-  renderReadout(payload);
-  renderFleet(payload);
-  renderRoutines(payload);
-  renderSummon(payload);
+function verdictFor(payload, signals) {
+  if (payload.__source === "fallback") return "Sample data only. No operational claims are verified.";
+  const down = signals.filter((signal) => signal.status === "down");
+  const unverified = signals.filter((signal) => signal.status === "unverified");
+  const workspace = signals.find((signal) => signal.name === "Workspace");
+  if (down.length) return `${down[0].name} is down${down.length > 1 ? `, with ${down.length - 1} more verified outage${down.length === 2 ? "" : "s"}` : ""}.`;
+  if (unverified.length) return `${unverified.length === 1 ? "One signal is" : `${unverified.length} signals are`} unverified — ${unverified[0].detail}.`;
+  if (workspace?.status === "attention") return `The workspace has ${workspace.stateLabel}; gateway and scheduler are verified up.`;
+  const jobs = payload.hermes?.cron?.active_jobs ?? payload.hermes?.cron_list?.count ?? 0;
+  return `Nothing needs you. Gateway up, ${jobs} routine${jobs === 1 ? "" : "s"} armed, workspace clean.`;
 }
 
-loadData().then(renderDashboard);
+function renderChrome(payload, signals) {
+  const age = ageDetails(payload.generated_at);
+  const asOf = validDate(payload.generated_at);
+  document.getElementById("as-of").textContent = asOf
+    ? `As of ${timeText(payload.generated_at)} · ${age.text}.`
+    : "As-of time unavailable · snapshot cannot be verified.";
+  document.getElementById("sample-notice").hidden = payload.__source !== "fallback";
+  document.getElementById("verdict-copy").textContent = verdictFor(payload, signals);
+}
+
+function renderSignals(signals) {
+  document.getElementById("signal-list").innerHTML = signals.map((signal) => `
+    <article class="signal-row" data-state="${esc(signal.status)}">
+      <div class="signal-name-state">
+        <h3>${esc(signal.name)}</h3>
+        <strong>${esc(signal.stateLabel || signal.status)}</strong>
+      </div>
+      <p>${esc(signal.detail)}</p>
+      <time datetime="${esc(signal.checkedAt || "")}">checked ${esc(timeText(signal.checkedAt))}</time>
+    </article>
+  `).join("");
+}
+
+const isOnce = (entry) => String(entry.schedule || "").toLowerCase().includes("once");
+
+function renderSchedule(payload) {
+  const entries = payload.hermes?.cron_list?.entries || [];
+  const start = validDate(payload.generated_at);
+  const end = start ? new Date(start.getTime() + 24 * 60 * 60 * 1000) : null;
+  const upcoming = entries
+    .map((entry) => ({ ...entry, parsedNext: validDate(entry.next_run) }))
+    .filter((entry) => entry.parsedNext && (!start || entry.parsedNext >= start) && (!end || entry.parsedNext <= end))
+    .sort((a, b) => a.parsedNext - b.parsedNext);
+  const count = payload.hermes?.cron_list?.count ?? entries.length;
+  const isPublic = payload.visibility === "public";
+  document.getElementById("schedule-summary").textContent = `${count} configured · next 24 hours`;
+  document.getElementById("schedule-list").innerHTML = upcoming.length
+    ? upcoming.map((entry) => `
+      <li>
+        <time datetime="${esc(entry.next_run)}">${esc(timeText(entry.next_run))}</time>
+        <span class="schedule-name">${esc(isPublic ? "Scheduled routine" : entry.name || "Unnamed routine")}${isOnce(entry) ? " · once" : ""}</span>
+        ${!isPublic && entry.schedule ? `<code>${esc(entry.schedule)}</code>` : ""}
+      </li>
+    `).join("")
+    : `<li class="empty-schedule">No scheduled runs reported in the next 24 hours.</li>`;
+}
+
+function renderColophon(payload) {
+  const history = Number(payload.run_history_count);
+  const historyText = Number.isFinite(history) ? `${history} run${history === 1 ? "" : "s"}` : "unavailable";
+  document.getElementById("colophon").textContent = `Generated by read-only probes · no sends, no config writes · history: ${historyText}`;
+}
+
+function render(payload) {
+  const signals = buildSignals(payload);
+  renderChrome(payload, signals);
+  renderSignals(signals);
+  renderSchedule(payload);
+  renderColophon(payload);
+}
+
+const SignalRoom = { ageDetails, buildSignals, normalizeProbe, verdictFor };
+
+if (typeof module !== "undefined" && module.exports) module.exports = SignalRoom;
+if (typeof document !== "undefined") loadData().then(render);
