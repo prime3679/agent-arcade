@@ -1,0 +1,79 @@
+{
+  "generated_at": "2026-08-24T07:45:19-04:00",
+  "visibility": "public",
+  "hermes": {
+    "gateway": {
+      "status": "up",
+      "reason": "gateway activity confirmed",
+      "checked_at": "2026-08-24T07:45:19-04:00"
+    },
+    "cron": {
+      "status": "up",
+      "reason": "scheduler activity confirmed",
+      "checked_at": "2026-08-24T07:45:19-04:00",
+      "active_jobs": 10,
+      "next_run": "2026-08-24T08:00:00-04:00"
+    },
+    "cron_list": {
+      "count": 10,
+      "entries": [
+        {
+          "state": "active",
+          "next_run": "2026-08-24T08:00:00-04:00",
+          "schedule": null
+        },
+        {
+          "state": "active",
+          "next_run": "2026-08-30T20:00:00-04:00",
+          "schedule": null
+        },
+        {
+          "state": "active",
+          "next_run": "2026-08-24T12:00:00-04:00",
+          "schedule": null
+        },
+        {
+          "state": "active",
+          "next_run": "2026-08-28T08:30:00-04:00",
+          "schedule": null
+        },
+        {
+          "state": "active",
+          "next_run": "2026-08-30T19:00:00-04:00",
+          "schedule": null
+        },
+        {
+          "state": "active",
+          "next_run": "2026-08-24T21:30:00-04:00",
+          "schedule": null
+        },
+        {
+          "state": "active",
+          "next_run": "2026-08-24T09:00:00-04:00",
+          "schedule": null
+        },
+        {
+          "state": "active",
+          "next_run": "2026-08-25T07:45:00-04:00",
+          "schedule": null
+        },
+        {
+          "state": "active",
+          "next_run": "2027-01-05T08:00:00-04:00",
+          "schedule": "once"
+        },
+        {
+          "state": "active",
+          "next_run": "2026-08-24T08:05:00-04:00",
+          "schedule": "once"
+        }
+      ]
+    }
+  },
+  "repo": {
+    "clean": true,
+    "changed_files": 0,
+    "checked_at": "2026-08-24T07:45:19-04:00"
+  },
+  "run_history_count": 17
+}
