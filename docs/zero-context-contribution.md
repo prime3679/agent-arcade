@@ -20,14 +20,14 @@ Operating model:
 Trust boundary:
 - Verify is honest about local trust. It is not a sandbox, and it must not inspect live Hermes state or mutate tracked or untracked repo files.
 - Fail closed when deterministic verifier fixtures or copied workflow inputs are missing or malformed.
-- Never create cron jobs, mutate Hermes config/state, send externally, start persistent servers, expose the network, or read secrets.
+- This repo reports on Hermes; it does not run it. So it never creates cron jobs, changes Hermes config or state, sends data externally, starts persistent servers, exposes the network, or reads secrets.
 
 Fresh-agent contribution flow:
 1. Read `AGENTS.md`, this document, and `README.md`.
 2. Run `python3 .agent/zero_context_gate.py audit --repo-root .`.
-3. Make the change without touching product UI/data, dependencies, lockfiles, Hermes config/state, auth, or services unless the task explicitly requires it and the rules allow it.
+3. Make the change on a branch. Product UI and data are in scope when the task asks for them; Hermes config/state, auth, services and new dependencies stay out of scope.
 4. Run `python3 .agent/zero_context_gate.py verify --repo-root .`.
-5. Run any requested deterministic checks plus repo hygiene checks before commit.
+5. Run any requested deterministic checks, then push the branch and open a pull request. Retrying a failed or timed-out check needs no approval.
 
 Review standard:
 - Report `repeatable_defect` first when behavior or verification can fail again for a fresh agent.

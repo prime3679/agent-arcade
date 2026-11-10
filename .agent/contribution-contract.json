@@ -50,7 +50,7 @@
       "Do not mutate Hermes config or live Hermes state.",
       "Do not send data externally or change auth.",
       "Do not start persistent servers or expose the network.",
-      "Do not install dependencies, edit lockfiles, or change package manager state.",
+      "Do not add dependencies or a package manager; the repo is dependency-free by design.",
       "Do not read or print secrets."
     ]
   },
@@ -59,7 +59,7 @@
       "Preserve the local-only static architecture.",
       "Treat generated JSON as the only app data source.",
       "Classify reusable breakage as repeatable_defect first.",
-      "Escalate instead of guessing when doctrine is insufficient."
+      "When doctrine is insufficient, take the reading that keeps the static generated-JSON architecture, state it in the handoff, and continue."
     ],
     "classification": {
       "one_off_judgment": "A non-reusable taste or tradeoff disagreement that does not break the contribution contract.",
@@ -70,7 +70,7 @@
   },
   "escalate_if": [
     "Existing generated-data checks require mutating live Hermes state.",
-    "Deterministic verification cannot run without installs or secrets.",
+    "Deterministic verification cannot run without secrets or new dependencies.",
     "The local-only architecture conflicts with the shared gate or requested change."
   ],
   "verification": {

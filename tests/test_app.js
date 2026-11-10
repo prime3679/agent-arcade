@@ -43,7 +43,12 @@ test("verified down is reserved for an explicit down status", () => {
 });
 
 test("public workspace detail never renders a branch", () => {
-  const payload = { ...currentPayload, visibility: "public", repo: { ...currentPayload.repo, branch: "codex/signal-room" } };
+  const payload = {
+    ...currentPayload,
+    generated_at: new Date().toISOString(),
+    visibility: "public",
+    repo: { ...currentPayload.repo, branch: "codex/signal-room" },
+  };
   const workspace = buildSignals(payload).find((signal) => signal.name === "Workspace");
   assert.equal(workspace.detail, "working tree");
 });
